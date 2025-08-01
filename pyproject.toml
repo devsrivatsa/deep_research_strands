@@ -1,0 +1,18 @@
+[project]
+name = "deepresearch-strands"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langfuse>=3.2.1",
+    "strands-agents-tools>=0.2.1",
+    "strands-agents[otel]>=1.0.1",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.30.0",
+    "strands-agents-builder>=0.1.7",
+    "strands-agents-tools>=0.2.1",
+]
