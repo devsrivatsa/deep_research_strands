@@ -4,7 +4,7 @@ from strands.multiagent import GraphBuilder
 from pydantic import BaseModel, Annotated, Optional
 from typing import List
 from .prompt import research_orchestrator_prompt
-from sub_agents.query_analysis_pipeline.agent import query_analysis_pipeline
+from agents.research_orchestrator.sub_agents.query_analysis_workflow.workflow import query_analysis_pipeline
 from sub_agents.research_planner_agent.agent import research_planner_agent
 
 logging.getLogger("strands.multiagent").setLevel(logging.DEBUG)
