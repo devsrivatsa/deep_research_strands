@@ -60,9 +60,19 @@ async def _conduct_research(research_job: ResearchJob):
         if final_research_review.research_verdict != "research_complete":
             feedbacks, completed_tasks = _segregate_task_results([(rt, research_output, compressed_research_output, final_research_review)])
             #TODO: store completed tasks in persistent storage, and some id of it in the agent state.
-            return _format_for_presentation(feedbacks, completed_tasks)
+            return _format_for_presentation(
+                feedbacks, 
+                completed_tasks
+            )
         else:
-            return _format_for_presentation(None, [CompletedResearchTask(research_task=root_research_task, completed_research_tasks=final_research_review.research_tasks_completed, compress_research_output=compressed_research_output)])
+            return _format_for_presentation(
+                None, 
+                [CompletedResearchTask(
+                    research_task=root_research_task, 
+                    completed_research_tasks=final_research_review.research_tasks_completed, 
+                    compress_research_output=compressed_research_output
+                )]
+            )
     else:
         research_outputs = await _sequential_rloop(research_job.research_tasks)
         to_be_segregated, completed = [], []
@@ -70,7 +80,13 @@ async def _conduct_research(research_job: ResearchJob):
             if ro[3].research_verdict != "research_complete":
                 to_be_segregated.append(ro)
             else:
-                completed.append(_convert_to_completed_research_task(ro))
+                completed.append(
+                    CompletedResearchTask(
+                        research_task=ro[0], 
+                        completed_research_tasks=ro[3].research_tasks_completed, 
+                        compress_research_output=ro[2]
+                    )
+                )
         feedbacks, completed_tasks = _segregate_task_results(to_be_segregated)
         completed.extend(completed_tasks)
         return _format_for_presentation(feedbacks, completed)
@@ -91,18 +107,11 @@ def _segregate_task_results(completed_jobs: List[Tuple[str, ResearchOutput, Comp
             completed.append(completed_task)
     return feedbacks, completed
 
-def _convert_to_completed_research_task(research_outputs: Tuple[str, ResearchOutput, CompressedResearchOutput, FinalResearchReview]):
-    return CompletedResearchTask(
-        research_task=research_outputs[0], 
-        completed_research_tasks=research_outputs[3].research_tasks_completed, 
-        compress_research_output=research_outputs[2]
-    )
-
 def _format_for_presentation(feedbacks: Optional[List[Feedback]], completed_tasks: List[CompletedResearchTask]):
     """Format the feedback and or completed tasks for presenting to the supervisor agent"""
     jinja_env = Environment()
     prompt_template = jinja_env.from_string("""
-        The following is a summary of the research tasks that were completed as part of this research round:        
+        The following is a overview of the research tasks that were completed as part of this research round:        
         {% for completed_task in completed_tasks %}
             Research Objective: {{completed_task.research_task}}
             Completed Research Tasks:
@@ -122,19 +131,29 @@ def _format_for_presentation(feedbacks: Optional[List[Feedback]], completed_task
             {% endfor %}
         {% endif %}"""
     )
-    research_report = prompt_template.render(feedbacks=feedbacks, completed_tasks=completed_tasks)
-    return research_report
+    short_research_overview = prompt_template.render(feedbacks=feedbacks, completed_tasks=completed_tasks)
+    return short_research_overview
 
 @tool
 async def conduct_research(prconfig: ParallelResearchConfig) -> List[Tuple[str, ResearchOutput, CompressedResearchOutput, FinalResearchReview]]:
     """
-    Conducts parallel research tasks using multiple sub-agents in a coordinated workflow.
-    
+    A tool that executes multiple research tasks in parallel to gather comprehensive information.
+
+    This tool takes a research configuration and spawns multiple sub-agents to conduct research tasks simultaneously. Each task is independently executed and reviewed. The results are aggregated into a final overview.
+
     Args:
-        prconfig: ParallelResearchConfig containing list of research jobs to be executed
-        
+        prconfig (ParallelResearchConfig): Configuration object containing a list of research jobs to be executed. Each job should specify what information needs to be researched.
+
     Returns:
-        List of tuples containing compressed research output and final review for each job
+        List[Tuple[str, ResearchOutput, CompressedResearchOutput, FinalResearchReview]]: A list containing tuples for each completed research job. Each tuple contains:
+            - The research task description (str)
+            - The detailed research output (ResearchOutput) 
+            - A compressed version of the findings (CompressedResearchOutput)
+            - A review of the research completeness (FinalResearchReview)
+
+    Example:
+        research_config = ParallelResearchConfig(research_jobs=[...])
+        results = await conduct_research(research_config)
     """
     tasks: list[asyncio.Task] = []
 
@@ -148,3 +167,20 @@ async def conduct_research(prconfig: ParallelResearchConfig) -> List[Tuple[str, 
         )
 
     completed_jobs = await asyncio.gather(*tasks)
+    jinja_env = Environment()
+    prompt_template = jinja_env.from_string(
+        """
+        All the assigned research jobs were completed. The following is a overview of each completed research job which were all reviewed by the review agent. 
+        Note: This is just a one liner overview of the completed research jobs, not the full report or the summary.
+        {% for job in completed_jobs %}
+            Research Job: {{job.research_task}}
+            Completed Research Tasks:
+            {% for task in job.completed_research_tasks %}
+                {{task}}
+            {% endfor %}
+        {% endfor %}
+        """
+    )
+    full_research_overview = prompt_template.render(completed_jobs=completed_jobs)
+    
+    return full_research_overview
