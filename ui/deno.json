@@ -1,0 +1,58 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "lib": ["dom", "dom.iterable", "es2022", "deno.ns"],
+    "strict": false,
+    "checkJs": false,
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0?dev&target=deno&deps=@types/react@18.2.0",
+    "react/": "https://esm.sh/react@18.2.0/",
+    "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime?target=deno",
+    "react-dom": "https://esm.sh/react-dom@18.2.0?dev&target=deno",
+    "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?target=deno",
+    "@types/react": "https://esm.sh/@types/react@18.2.0?target=deno",
+    "@types/react-dom": "https://esm.sh/@types/react-dom@18.2.0?target=deno",
+    "zustand": "https://esm.sh/zustand@4.4.1",
+    "zustand/middleware": "https://esm.sh/zustand@4.4.1/middleware",
+    "zustand/middleware/immer": "https://esm.sh/zustand@4.4.1/middleware/immer",
+    "immer": "https://esm.sh/immer@10.0.3",
+    "tailwindcss": "https://esm.sh/tailwindcss@3.3.0",
+    "clsx": "https://esm.sh/clsx@2.0.0"
+  },
+  "tasks": {
+    "dev": "deno run --allow-net --allow-read --allow-write --watch dev-server.ts",
+    "build": "deno run --allow-net --allow-read --allow-write build.ts",
+    "build:dev": "deno run --allow-net --allow-read --allow-write build.ts --dev",
+    "build:prod": "deno run --allow-net --allow-read --allow-write build.ts",
+    "analyze": "deno run --allow-read bundle-analyzer.ts",
+    "test": "deno test --allow-net --allow-read --allow-write",
+    "fmt": "deno fmt",
+    "lint": "deno lint"
+  },
+  "fmt": {
+    "files": {
+      "include": ["src/", "*.ts", "*.tsx", "*.js", "*.jsx"]
+    },
+    "options": {
+      "useTabs": false,
+      "lineWidth": 100,
+      "indentWidth": 2,
+      "semiColons": true,
+      "singleQuote": false,
+      "proseWrap": "preserve"
+    }
+  },
+  "lint": {
+    "files": {
+      "include": ["src/", "*.ts", "*.tsx", "*.js", "*.jsx"]
+    },
+    "rules": {
+      "tags": ["recommended"]
+    }
+  }
+}

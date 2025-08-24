@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Research - Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+</head>
+<body>
+    <div id="root">Loading...</div>
+    <script>
+        console.log('Script starting...');
+        console.log('React available:', typeof React !== 'undefined');
+        console.log('ReactDOM available:', typeof ReactDOM !== 'undefined');
+        
+        if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined') {
+            const { useState } = React;
+            const { createRoot } = ReactDOM;
+            
+            function TestApp() {
+                const [count, setCount] = useState(0);
+                
+                return React.createElement('div', {
+                    className: 'min-h-screen bg-blue-50 flex items-center justify-center'
+                },
+                    React.createElement('div', {
+                        className: 'text-center bg-white p-8 rounded-lg shadow-lg'
+                    },
+                        React.createElement('h1', {
+                            className: 'text-3xl font-bold text-blue-900 mb-4'
+                        }, 'Deep Research Test'),
+                        React.createElement('p', {
+                            className: 'text-blue-600 mb-4'
+                        }, `React is working! Count: ${count}`),
+                        React.createElement('button', {
+                            onClick: () => setCount(count + 1),
+                            className: 'bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded'
+                        }, 'Click me!')
+                    )
+                );
+            }
+            
+            const container = document.getElementById('root');
+            const root = createRoot(container);
+            root.render(React.createElement(TestApp));
+            console.log('App rendered successfully!');
+        } else {
+            document.getElementById('root').innerHTML = '<div class="p-4 text-red-600">React failed to load</div>';
+        }
+    </script>
+</body>
+</html>

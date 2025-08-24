@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Research - Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {}
+            }
+        }
+    </script>
+</head>
+<body class="h-full">
+    <div id="root">Loading...</div>
+    <script type="module">
+        console.log('Script loading...');
+        
+        try {
+            // Test basic functionality first
+            document.getElementById('root').innerHTML = `
+                <div class="min-h-screen bg-gray-50 flex items-center justify-center">
+                    <div class="text-center">
+                        <h1 class="text-3xl font-bold text-gray-900 mb-4">Deep Research</h1>
+                        <p class="text-gray-600">Basic HTML is working!</p>
+                        <div class="mt-4">
+                            <button onclick="testReact()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
+                                Test React Loading
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            window.testReact = async function() {
+                try {
+                    console.log('Loading React...');
+                    const React = await import("https://esm.sh/react@18.2.0?dev&target=deno");
+                    const { createRoot } = await import("https://esm.sh/react-dom@18.2.0/client?target=deno");
+                    
+                    console.log('React loaded successfully:', React);
+                    
+                    const SimpleApp = () => {
+                        return React.createElement('div', {
+                            className: 'min-h-screen bg-green-50 flex items-center justify-center'
+                        }, 
+                            React.createElement('div', {
+                                className: 'text-center'
+                            },
+                                React.createElement('h1', {
+                                    className: 'text-3xl font-bold text-green-900 mb-4'
+                                }, 'React is Working! 🎉'),
+                                React.createElement('p', {
+                                    className: 'text-green-600'
+                                }, 'React components are rendering correctly.')
+                            )
+                        );
+                    };
+                    
+                    const container = document.getElementById('root');
+                    const root = createRoot(container);
+                    root.render(React.createElement(SimpleApp));
+                    
+                } catch (error) {
+                    console.error('React loading failed:', error);
+                    document.getElementById('root').innerHTML = `
+                        <div class="min-h-screen bg-red-50 flex items-center justify-center">
+                            <div class="text-center">
+                                <h1 class="text-3xl font-bold text-red-900 mb-4">Error Loading React</h1>
+                                <p class="text-red-600">${error.message}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+            };
+            
+        } catch (error) {
+            console.error('Script error:', error);
+            document.getElementById('root').innerHTML = `
+                <div class="min-h-screen bg-red-50 flex items-center justify-center">
+                    <div class="text-center">
+                        <h1 class="text-3xl font-bold text-red-900 mb-4">Script Error</h1>
+                        <p class="text-red-600">${error.message}</p>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

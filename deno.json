@@ -1,0 +1,9 @@
+{
+  "tasks": {
+    "dev": "cd ui && deno task dev",
+    "build": "cd ui && deno task build",
+    "test": "cd ui && deno task test",
+    "fmt": "cd ui && deno task fmt",
+    "lint": "cd ui && deno task lint"
+  }
+}

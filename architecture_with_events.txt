@@ -1,0 +1,208 @@
+deepresearch-strands/
+├── main.py                          # Application entry point
+├── config.py                        # Configuration management
+├── pyproject.toml
+├── .env.example
+├── uv.lock
+
+# Domain Layer (Business Logic) - Enhanced with Events
+├── domain/
+│   ├── __init__.py
+│   ├── entities/                    # Core business entities
+│   │   ├── __init__.py
+│   │   ├── user.py                  # User aggregate
+│   │   ├── project.py               # Project aggregate  
+│   │   ├── research.py              # Research aggregate (existing)
+│   │   └── query.py                 # Query value objects
+│   ├── events/                      # Domain Events (NEW)
+│   │   ├── __init__.py
+│   │   ├── base.py                  # Base domain event classes & interfaces
+│   │   ├── research_events.py       # Research domain events
+│   │   │   # - ResearchSessionStarted
+│   │   │   # - ResearchPlanGenerated  
+│   │   │   # - ResearchTaskStarted
+│   │   │   # - ResearchTaskCompleted
+│   │   │   # - ResearchSessionCompleted
+│   │   ├── user_events.py           # User domain events
+│   │   │   # - UserRegistered
+│   │   │   # - UserProfileUpdated
+│   │   ├── project_events.py        # Project domain events
+│   │   │   # - ProjectCreated
+│   │   │   # - ProjectArchived
+│   │   └── handlers/                # Domain event handlers
+│   │       ├── __init__.py
+│   │       ├── research_handlers.py # Business logic handlers
+│   │       ├── audit_handlers.py    # Audit trail handlers
+│   │       └── integration_handlers.py # External system handlers
+│   ├── repositories/                # Repository interfaces (abstractions)
+│   │   ├── __init__.py
+│   │   ├── user_repository.py
+│   │   ├── project_repository.py
+│   │   ├── research_repository.py
+│   │   └── event_repository.py      # Event storage interface
+│   └── services/                    # Domain services
+│       ├── __init__.py
+│       ├── research_orchestrator.py # Core research logic
+│       ├── query_analyzer.py
+│       ├── plan_generator.py
+│       └── event_bus.py             # Domain event bus interface
+
+# Application Layer (Use Cases) - Enhanced with Event Integration
+├── application/
+│   ├── __init__.py
+│   ├── use_cases/                   # Application use cases
+│   │   ├── __init__.py
+│   │   ├── auth/
+│   │   │   ├── register_user.py     # Emits UserRegistered event
+│   │   │   ├── login_user.py
+│   │   │   └── logout_user.py
+│   │   ├── projects/
+│   │   │   ├── create_project.py    # Emits ProjectCreated event
+│   │   │   ├── get_projects.py
+│   │   │   └── archive_project.py   # Emits ProjectArchived event
+│   │   └── research/
+│   │       ├── start_research.py    # Emits ResearchSessionStarted event
+│   │       ├── get_research_status.py
+│   │       └── cancel_research.py   # Emits ResearchSessionCancelled event
+│   ├── dto/                         # Data Transfer Objects
+│   │   ├── __init__.py
+│   │   ├── auth_dto.py
+│   │   ├── project_dto.py
+│   │   ├── research_dto.py
+│   │   └── event_dto.py             # Event-related DTOs
+│   └── interfaces/                  # Application interfaces
+│       ├── __init__.py
+│       ├── auth_service.py
+│       ├── notification_service.py
+│       ├── external_apis.py
+│       └── event_publisher.py       # Event publishing interface
+
+# Infrastructure Layer (External Concerns) - Enhanced with Event Infrastructure
+├── infrastructure/
+│   ├── __init__.py
+│   ├── database/                    # Database implementations
+│   │   ├── __init__.py
+│   │   ├── models/                  # SQLAlchemy models
+│   │   │   ├── __init__.py
+│   │   │   ├── user_model.py
+│   │   │   ├── project_model.py
+│   │   │   ├── research_model.py
+│   │   │   └── event_model.py       # Event sourcing/audit table
+│   │   ├── repositories/            # Repository implementations
+│   │   │   ├── __init__.py
+│   │   │   ├── user_repository_impl.py
+│   │   │   ├── project_repository_impl.py
+│   │   │   ├── research_repository_impl.py
+│   │   │   └── event_repository_impl.py # Event persistence
+│   │   └── migrations/              # Alembic migrations
+│   ├── events/                      # Event Infrastructure (NEW)
+│   │   ├── __init__.py
+│   │   ├── event_bus_impl.py        # Concrete event bus implementation
+│   │   ├── websocket_manager.py     # Real-time UI communication
+│   │   ├── background_processors.py # Async event processing
+│   │   └── integrations/            # External system integrations
+│   │       ├── __init__.py
+│   │       ├── mcp_event_publisher.py # MCP integration events
+│   │       └── notification_sender.py # Email/slack notifications
+│   ├── external_apis/               # External API clients
+│   │   ├── __init__.py
+│   │   ├── google_api.py
+│   │   ├── exa_api.py
+│   │   └── ncbi_api.py
+│   ├── auth/                        # Authentication implementations
+│   │   ├── __init__.py
+│   │   ├── jwt_service.py
+│   │   └── password_service.py
+│   └── monitoring/                  # Observability
+│       ├── __init__.py
+│       ├── langfuse_client.py
+│       ├── metrics.py
+│       └── event_tracing.py         # Event-driven observability
+
+# Presentation Layer (API/UI) - Enhanced with Event Endpoints
+├── api/
+│   ├── __init__.py
+│   ├── main.py                      # FastAPI app setup
+│   ├── dependencies.py              # Dependency injection (includes event bus)
+│   ├── middleware.py                # Auth, CORS, event correlation
+│   ├── routes/                      # API endpoints
+│   │   ├── __init__.py
+│   │   ├── auth.py
+│   │   ├── projects.py
+│   │   ├── research.py
+│   │   ├── events.py                # Event stream endpoints (SSE/polling)
+│   │   ├── health.py
+│   │   └── websockets.py            # WebSocket endpoints for real-time updates
+│   └── schemas/                     # Pydantic request/response models
+│       ├── __init__.py
+│       ├── auth_schemas.py
+│       ├── project_schemas.py
+│       ├── research_schemas.py
+│       └── event_schemas.py         # Event API schemas
+
+# AI Agents (Minimal Changes - Event Integration)
+├── agents/
+│   ├── research_orchestrator/       # Your existing agent structure
+│   │   ├── agent.py                 # Enhanced to emit domain events
+│   │   ├── prompt.py
+│   │   ├── state.py
+│   │   └── sub_agents/              # Sub-agents emit task-level events
+│   │       ├── query_analysis_workflow/
+│   │       ├── research_planner_agent/
+│   │       ├── human_feedback_manager/
+│   │       └── research_workflow/
+│   └── report_writer/               # Emits report generation events
+
+# Configuration & Environment
+├── config/
+│   ├── base.yml                     # Enhanced with event bus config
+│   ├── dev.yml                      # Development event settings
+│   └── prod.yml                     # Production event settings
+
+# Frontend (Enhanced with Real-time Event Handling)
+├── ui/
+│   ├── src/
+│   │   ├── store/                   # Enhanced to handle event streams
+│   │   ├── components/
+│   │   │   ├── ChatInterface.tsx    # Real-time event updates
+│   │   │   ├── ResearchPlanViewer.tsx
+│   │   │   ├── ReportViewer.tsx
+│   │   │   └── EventStream.tsx      # NEW: Live event feed component
+│   │   └── utils/
+│   │       ├── WebSocketManager.ts  # Enhanced event-driven WebSocket
+│   │       └── EventHandlers.ts     # NEW: Client-side event handlers
+│   └── main.tsx
+
+# Event Processing & Integration
+├── events/                          # Top-level event processing (NEW)
+│   ├── __init__.py
+│   ├── processors/                  # Background event processors
+│   │   ├── __init__.py
+│   │   ├── research_processor.py    # Research workflow event processing
+│   │   ├── notification_processor.py # User notification processing
+│   │   └── analytics_processor.py   # Research analytics event processing
+│   └── integrations/                # External integrations
+│       ├── __init__.py
+│       ├── mcp_integration.py       # MCP protocol event integration
+│       └── webhook_handlers.py      # Webhook event processing
+
+# MCP Integration Layer (NEW)
+├── mcp/
+│   ├── __init__.py
+│   ├── server.py                    # MCP server implementation
+│   ├── tools/                       # MCP tools that emit events
+│   │   ├── __init__.py
+│   │   ├── research_tools.py        # Research-related MCP tools
+│   │   └── project_tools.py         # Project management MCP tools
+│   └── event_bridge.py              # Bridge between MCP and domain events
+
+└── langfuse/                        # Observability (Enhanced with Events)
+    ├── event_traces/                # Event-driven tracing
+    └── research_analytics/          # Research workflow analytics
+
+# Key Event Flow Integration Points:
+# 1. research_events_example.py → domain/events/research_events.py
+# 2. frontend_streaming_example.py → infrastructure/events/websocket_manager.py
+# 3. ResearchProgress (existing) → Enhanced with domain events
+# 4. WebSocket communication → Event-driven, not direct agent communication
+# 5. MCP integration → Event-driven tool execution and state management
