@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional, Literal, Annotated
-from .tools import ToolCall
+from .tool_call import ToolCall
 
 
 class CompressedResearchOutput(BaseModel):

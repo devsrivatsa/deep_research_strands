@@ -1,28 +1,19 @@
+"""
+Tool call domain model.
+
+This module contains the tool call model used in research outputs.
+"""
+
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any
+from typing import Dict, Any, Optional
 
 
 class ToolCall(BaseModel):
-    tool_name: str = Field(description="The name of the tool that was called")
-    tool_arguments: List[Dict[str, str]] = Field(
-        description="The inputs to the tool calls as a list of dictionaries with key as the input name and value as the input value for each tool call"
-    )
-    number_of_calls: int = Field(description="The number of times the tool was called")
-
-
-class ParallelToolCall(BaseModel):
-    tool_name: str = Field(description="The name of the tool to call")
-    tool_args: List[Dict[str, Any]] = Field(description="The list of tool arguments to pass to the all tool calls")
-    parallel_workers: int = Field(description="The number of parallel workers to use for the tool call (must match the number of tool calls argument sets in the tool_args list)", default=1)
-
-
-class ParallelToolCallConfig(BaseModel):
-    tool_call_configs: List[ParallelToolCall] = Field(description="The list of tool calls to make in parallel")
-
-
-class ToolCallResult(BaseModel):
-    tool_call_id: str = Field(description="The id of the tool call")
-    tool_name: str = Field(description="The name of the tool that was called")
-    tool_result: Any = Field(description="The result of the tool call")
-    is_error: bool = Field(description="Whether the tool call was successful or not", default=False)
-    error_message: str = Field(description="The error message if the tool call was not successful", default="")
+    """Represents a tool call made during research"""
+    tool_name: str = Field(description="Name of the tool that was called")
+    arguments: Dict[str, Any] = Field(description="Arguments passed to the tool")
+    result: Optional[str] = Field(default=None, description="Result returned by the tool")
+    timestamp: Optional[str] = Field(default=None, description="When the tool was called")
+    duration_ms: Optional[float] = Field(default=None, description="How long the tool took to execute")
+    success: bool = Field(default=True, description="Whether the tool call was successful")
+    error_message: Optional[str] = Field(default=None, description="Error message if the tool failed")

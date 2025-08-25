@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 
@@ -11,8 +11,8 @@ class User(BaseModel):
     full_name: Optional[str] = None
     is_active: bool = True
     is_verified: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=datetime.now(timezone.utc))
     
     class Config:
         from_attributes = True
@@ -23,7 +23,7 @@ class UserSession(BaseModel):
     user_id: UUID
     token_hash: str = Field(exclude=True)  # Never serialize token hash
     expires_at: datetime
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(timezone.utc))
     last_accessed: Optional[datetime] = None
     user_agent: Optional[str] = None
     ip_address: Optional[str] = None

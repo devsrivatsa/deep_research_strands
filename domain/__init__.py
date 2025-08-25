@@ -1,9 +1,9 @@
 # Domain models for the Deep Research platform
 from .research import *
-from .user import *
+# from .user import *  # Temporarily disabled due to email validator dependency
 from .project import *
 from .query import *
-from .tools import *
+# from .tools import *  # Temporarily disabled - tools module missing
 
 __all__ = [
     # Research models
@@ -26,15 +26,15 @@ __all__ = [
     "QueryComponents",
     "QueryType",
     
-    # Tool models
-    "ToolCall",
-    "ParallelToolCall",
-    "ParallelToolCallConfig",
-    "ToolCallResult",
+    # Tool models - temporarily disabled
+    # "ToolCall",
+    # "ParallelToolCall", 
+    # "ParallelToolCallConfig",
+    # "ToolCallResult",
     
-    # User models
-    "User",
-    "UserSession",
+    # User models - temporarily disabled
+    # "User",
+    # "UserSession",
     
     # Project models
     "Project",
