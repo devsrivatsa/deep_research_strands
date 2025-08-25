@@ -60,7 +60,7 @@ export interface ToolCall {
 
 export interface ParallelToolCall {
   tool_name: string;
-  tool_args: Record<string, any>[];
+  tool_args: Record<string, unknown>[];
   parallel_workers: number;
 }
 
@@ -71,7 +71,7 @@ export interface ParallelToolCallConfig {
 export interface ToolCallResult {
   tool_call_id: string;
   tool_name: string;
-  tool_result: any;
+  tool_result: unknown;
   is_error: boolean;
   error_message: string;
 }
@@ -94,6 +94,168 @@ export interface CompletedResearchTask {
   research_task: string;
   completed_research_tasks: string[];
   compress_research_output: CompressedResearchOutput;
+}
+
+// ============================================================================
+// Research Progress Types (for real-time streaming)
+// ============================================================================
+export enum ResearchProgressType {
+  TASK_STARTED = "task_started",
+  TASK_PROGRESS = "task_progress", 
+  TASK_COMPLETED = "task_completed",
+  TASK_FAILED = "task_failed",
+  JOB_COMPLETED = "job_completed",
+  ALL_JOBS_COMPLETED = "all_jobs_completed"
+}
+
+export interface ResearchProgressEvent {
+  type: "progress";
+  event_type: ResearchProgressType;
+  message: string;
+  progress: number | null;
+}
+
+export interface ResearchFinalResultEvent {
+  type: "final_result";
+  result: CompressedResearchOutput | string;
+}
+
+export interface ResearchErrorEvent {
+  type: "error";
+  message: string;
+}
+
+export type ResearchWebSocketEvent = 
+  | ResearchProgressEvent 
+  | ResearchFinalResultEvent 
+  | ResearchErrorEvent;
+
+// ============================================================================
+// Domain Events (for event-driven architecture)
+// ============================================================================
+
+export interface BaseDomainEvent {
+  event_id: string;
+  aggregate_id: string;
+  event_type: string;
+  timestamp: string;
+  version: number;
+  correlation_id?: string;
+}
+
+// Research Domain Events
+export interface ResearchSessionStartedEvent extends BaseDomainEvent {
+  event_type: "research_session_started";
+  data: {
+    session_id: string;
+    query: string;
+    user_id: string;
+  };
+}
+
+export interface ResearchPlanGeneratedEvent extends BaseDomainEvent {
+  event_type: "research_plan_generated";
+  data: {
+    session_id: string;
+    plan: ResearchPlan;
+  };
+}
+
+export interface ResearchTaskStartedEvent extends BaseDomainEvent {
+  event_type: "research_task_started";
+  data: {
+    session_id: string;
+    task_id: string;
+    task_description: string;
+  };
+}
+
+export interface ResearchTaskCompletedEvent extends BaseDomainEvent {
+  event_type: "research_task_completed";
+  data: {
+    session_id: string;
+    task_id: string;
+    result: CompressedResearchOutput;
+  };
+}
+
+export interface ResearchSessionCompletedEvent extends BaseDomainEvent {
+  event_type: "research_session_completed";
+  data: {
+    session_id: string;
+    final_result: string;
+  };
+}
+
+// Project Domain Events
+export interface ProjectCreatedEvent extends BaseDomainEvent {
+  event_type: "project_created";
+  data: {
+    project_id: string;
+    name: string;
+    user_id: string;
+  };
+}
+
+export interface ProjectArchivedEvent extends BaseDomainEvent {
+  event_type: "project_archived";
+  data: {
+    project_id: string;
+    user_id: string;
+  };
+}
+
+// User Domain Events
+export interface UserRegisteredEvent extends BaseDomainEvent {
+  event_type: "user_registered";
+  data: {
+    user_id: string;
+    email: string;
+  };
+}
+
+export interface UserProfileUpdatedEvent extends BaseDomainEvent {
+  event_type: "user_profile_updated";
+  data: {
+    user_id: string;
+    changes: Record<string, unknown>;
+  };
+}
+
+export type DomainEvent = 
+  | ResearchSessionStartedEvent
+  | ResearchPlanGeneratedEvent
+  | ResearchTaskStartedEvent
+  | ResearchTaskCompletedEvent
+  | ResearchSessionCompletedEvent
+  | ProjectCreatedEvent
+  | ProjectArchivedEvent
+  | UserRegisteredEvent
+  | UserProfileUpdatedEvent;
+
+// Event Handler Types
+export interface EventHandler<T extends DomainEvent = DomainEvent> {
+  handle(event: T): Promise<void>;
+}
+
+export interface EventPublisher {
+  publish(event: DomainEvent): Promise<void>;
+}
+
+// Event Stream Types (for SSE/polling endpoints)
+export interface EventStreamMessage {
+  event_id: string;
+  event_type: string;
+  data: unknown;
+  timestamp: string;
+}
+
+export interface EventFilter {
+  event_types?: string[];
+  aggregate_ids?: string[];
+  correlation_ids?: string[];
+  from_timestamp?: string;
+  to_timestamp?: string;
 }
 
 // ============================================================================
@@ -128,6 +290,10 @@ export interface ResearchJob {
 
 export interface ResearchActionPlan {
   research_tasks: ProcessedJob[];
+}
+
+export interface ParallelResearchConfig {
+  research_jobs: ResearchJob[];
 }
 
 // ============================================================================
@@ -234,7 +400,7 @@ export interface ChatMessage {
     search_query?: string;
     status?: string;
     error_code?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -276,7 +442,7 @@ export interface ResearchStartedMessage extends BaseWebSocketMessage {
   type: "research_started";
   data: {
     topic: string;
-    configuration?: Record<string, any>;
+    configuration?: Record<string, unknown>;
   };
 }
 
@@ -341,7 +507,7 @@ export interface ErrorMessage extends BaseWebSocketMessage {
   data: {
     error: string;
     error_code?: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   };
 }
 
@@ -367,7 +533,7 @@ export interface ConnectionErrorMessage extends BaseWebSocketMessage {
   type: "connection_error";
   data: {
     error: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   };
 }
 
@@ -376,7 +542,7 @@ export interface SectionFailedMessage extends BaseWebSocketMessage {
   data: {
     section?: Section;
     error: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   };
 }
 
@@ -400,7 +566,7 @@ export type WebSocketMessage =
 // API Response and Error Types
 // ============================================================================
 
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: APIError;
@@ -410,7 +576,7 @@ export interface APIResponse<T = any> {
 export interface APIError {
   code: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   stack_trace?: string;
 }
 
@@ -451,12 +617,12 @@ export type ResearchSessionStatus =
   | "cancelled";
 
 export interface ResearchConfiguration {
-  report_structure?: string | Record<string, any>;
+  report_structure?: string | Record<string, unknown>;
   number_of_queries?: number;
   max_search_depth?: number;
   number_of_follow_up_queries?: number;
   search_api?: string;
-  search_api_config?: Record<string, any>;
+  search_api_config?: Record<string, unknown>;
   writer_provider?: string;
   writer_model?: string;
   planner_provider?: string;
@@ -516,17 +682,7 @@ export interface SearchQuery {
   updated_at?: string;
 }
 
-// ============================================================================
-// Utility Types
-// ============================================================================
 
-export type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
-
-export type RequiredFields<T, K extends keyof T> = T & Required<Pick<T, K>>;
-
-export type OptionalFields<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 
 // ============================================================================
 // State Management Types
@@ -560,4 +716,49 @@ export interface UIState {
   theme: "light" | "dark" | "system";
   loading_states: Record<string, boolean>;
   error_states: Record<string, APIError | null>;
+}
+
+// ============================================================================
+// Research WebSocket Event Handlers (for real-time streaming)
+// ============================================================================
+
+export interface ResearchWebSocketHandlers {
+  onProgress?: (event: ResearchProgressEvent) => void;
+  onFinalResult?: (event: ResearchFinalResultEvent) => void;
+  onError?: (event: ResearchErrorEvent) => void;
+}
+
+// Type guard functions for research WebSocket events
+export const isResearchProgressEvent = (event: ResearchWebSocketEvent): event is ResearchProgressEvent => {
+  return event.type === "progress";
+};
+
+export const isResearchFinalResultEvent = (event: ResearchWebSocketEvent): event is ResearchFinalResultEvent => {
+  return event.type === "final_result";
+};
+
+export const isResearchErrorEvent = (event: ResearchWebSocketEvent): event is ResearchErrorEvent => {
+  return event.type === "error";
+};
+
+// ============================================================================
+// Event-Driven WebSocket Types (for new architecture)
+// ============================================================================
+
+export interface EventDrivenWebSocketMessage {
+  type: "domain_event" | "integration_event" | "ui_event";
+  event: DomainEvent | ResearchWebSocketEvent | WebSocketMessage;
+  correlation_id?: string;
+}
+
+export interface EventSubscription {
+  event_types: string[];
+  filters?: EventFilter;
+  session_id: string;
+}
+
+export interface EventWebSocketHandlers {
+  onDomainEvent?: (event: DomainEvent) => void;
+  onIntegrationEvent?: (event: ResearchWebSocketEvent) => void;
+  onUIEvent?: (event: WebSocketMessage) => void;
 }
