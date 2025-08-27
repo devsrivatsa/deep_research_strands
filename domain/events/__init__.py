@@ -17,10 +17,13 @@ from .research_events import (
     ResearchSessionStarted,
     ResearchPlanGenerated,
     ResearchTaskStarted,
+    ResearchTaskProgress,
     ResearchTaskCompleted,
     ResearchTaskFailed,
     ResearchSessionCompleted,
-    ResearchSessionCancelled
+    ResearchSessionCancelled,
+    ResearchReportGenerated,
+    HumanFeedbackReceived
 )
 
 __all__ = [
@@ -35,8 +38,11 @@ __all__ = [
     "ResearchSessionStarted",
     "ResearchPlanGenerated", 
     "ResearchTaskStarted",
+    "ResearchTaskProgress",
     "ResearchTaskCompleted",
     "ResearchTaskFailed",
     "ResearchSessionCompleted",
     "ResearchSessionCancelled",
+    "ResearchReportGenerated",
+    "HumanFeedbackReceived",
 ]

@@ -16,12 +16,6 @@ class CompletedResearchTask(BaseModel):
     compress_research_output: CompressedResearchOutput
 
 
-class ResearchJob(BaseModel):
-    """
-    A research job is a single task that needs to be completed in order to answer the overall research question.
-    """
-    research_tasks: List[str] = Field(description="A list of research tasks that need to be completed in order to answer the overall research question.")
-
 
 class FinalResearchReview(BaseModel):
     research_verdict: Literal["research_complete", "research_incomplete"] = Field(description="The verdict on the research findings. You should return 'research_complete'/'research_incomplete' based on whether the research findings are comprehensive and complete enough to answer the overall research question.")
@@ -106,6 +100,11 @@ class HumanFeedbackDecision(BaseModel):
     modification_feedback: Optional[ModificationFeedback] = Field(description="feedback on what needs to be included or changed in the modified plan.[Only relevant if the action is NOT 'proceed']")
     new_query: Optional[str] = Field(description="The new ideas that the user has introduced in the feedback condensed into a well defined research query.[Only relevant if action is 'develop_new']")
 
+class ResearchJob(BaseModel):
+    """
+    A research job is a single task that needs to be completed in order to answer the overall research question.
+    """
+    research_tasks: List[str] = Field(description="A list of research tasks that need to be completed in order to answer the overall research question.")
 
 class ParallelResearchConfig(BaseModel):
     research_jobs: List[ResearchJob] = Field(description="A list of research jobs to be executed in parallel")

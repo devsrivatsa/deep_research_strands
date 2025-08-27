@@ -7,7 +7,7 @@ These handlers implement business logic side effects.
 
 import logging
 from typing import Type, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..base import DomainEvent, EventHandler, EventPriority
 from ..research_events import (
@@ -25,9 +25,10 @@ logger = logging.getLogger(__name__)
 class ResearchProgressTracker(EventHandler):
     """
     Tracks research progress across sessions and tasks.
-    
-    This handler maintains progress state and calculates metrics
-    for research sessions.
+    The ResearchProgressTracker is designed to:
+    - Track multiple concurrent sessions in memory
+    - Provide session-specific progress information via get_session_progress(session_id)
+    - Aggregate metrics across all sessions via get_all_sessions() 
     """
     
     def __init__(self):
@@ -38,18 +39,19 @@ class ResearchProgressTracker(EventHandler):
         session_id = event.metadata.session_id
         
         # Handle events even without session_id for some events
-        if isinstance(event, ResearchSessionStarted):
-            await self._handle_session_started(event)
-        elif isinstance(event, ResearchTaskStarted):
-            await self._handle_task_started(event)
-        elif isinstance(event, ResearchTaskCompleted):
-            await self._handle_task_completed(event)
-        elif isinstance(event, ResearchTaskFailed):
-            await self._handle_task_failed(event)
-        elif isinstance(event, ResearchSessionCompleted):
-            await self._handle_session_completed(event)
-        elif isinstance(event, ResearchSessionCancelled):
-            await self._handle_session_cancelled(event)
+        match event:
+            case ResearchSessionStarted():
+                await self._handle_session_started(event)
+            case ResearchTaskStarted():
+                await self._handle_task_started(event)
+            case ResearchTaskCompleted():
+                await self._handle_task_completed(event)
+            case ResearchTaskFailed():
+                await self._handle_task_failed(event)
+            case ResearchSessionCompleted():
+                await self._handle_session_completed(event)
+            case ResearchSessionCancelled():
+                await self._handle_session_cancelled(event)
     
     async def _handle_session_started(self, event: ResearchSessionStarted) -> None:
         """Initialize progress tracking for a new session"""
@@ -190,24 +192,25 @@ class ResearchMetricsCollector(EventHandler):
     
     async def handle(self, event: DomainEvent) -> None:
         """Handle events for metrics collection"""
-        if isinstance(event, ResearchSessionStarted):
-            self._metrics["total_sessions"] += 1
-        elif isinstance(event, ResearchSessionCompleted):
-            self._metrics["completed_sessions"] += 1
-            self._update_session_duration_metric(event.data.get("total_duration_seconds", 0))
-        elif isinstance(event, ResearchSessionCancelled):
-            self._metrics["cancelled_sessions"] += 1
-        elif isinstance(event, ResearchTaskStarted):
-            self._metrics["total_tasks"] += 1
-        elif isinstance(event, ResearchTaskCompleted):
-            self._metrics["completed_tasks"] += 1
-            self._metrics["total_tool_calls"] += event.data.get("tool_calls_used", 0)
-            self._update_task_duration_metric(event.data.get("duration_seconds", 0))
-        elif isinstance(event, ResearchTaskFailed):
-            self._metrics["failed_tasks"] += 1
-            self._metrics["total_tool_calls"] += event.data.get("tool_calls_made", 0)
+        match event:
+            case ResearchSessionStarted():
+                self._metrics["total_sessions"] += 1
+            case ResearchSessionCompleted():
+                self._metrics["completed_sessions"] += 1
+                self._update_session_duration_metric(event.data.get("total_duration_seconds", 0))
+            case ResearchSessionCancelled():
+                self._metrics["cancelled_sessions"] += 1
+            case ResearchTaskStarted():
+                self._metrics["total_tasks"] += 1
+            case ResearchTaskCompleted():
+                self._metrics["completed_tasks"] += 1
+                self._metrics["total_tool_calls"] += event.data.get("tool_calls_used", 0)
+                self._update_task_duration_metric(event.data.get("duration_seconds", 0))
+            case ResearchTaskFailed():
+                self._metrics["failed_tasks"] += 1
+                self._metrics["total_tool_calls"] += event.data.get("tool_calls_made", 0)
         
-        self._metrics["last_updated"] = datetime.utcnow().isoformat()
+        self._metrics["last_updated"] = datetime.now(timezone.utc).isoformat()
         
         # Log significant metrics periodically
         if self._metrics["total_sessions"] % 10 == 0:

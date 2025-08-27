@@ -1,11 +1,12 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 from enum import Enum
 
 from .research import ResearchActionPlan, CompletedResearchTask
 
+#--------------------------------Research Session--------------------------------
 
 class ResearchStatus(str, Enum):
     PENDING = "pending"
@@ -14,20 +15,6 @@ class ResearchStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
-
-class Project(BaseModel):
-    id: UUID = Field(default_factory=uuid4)
-    user_id: UUID
-    name: str = Field(min_length=1, max_length=255)
-    description: Optional[str] = None
-    is_archived: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    class Config:
-        from_attributes = True
-
 
 class ResearchSession(BaseModel):
     id: UUID = Field(default_factory=uuid4)
@@ -58,18 +45,6 @@ class ResearchSession(BaseModel):
     class Config:
         from_attributes = True
 
-
-class ProjectCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=255)
-    description: Optional[str] = None
-
-
-class ProjectUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = None
-    is_archived: Optional[bool] = None
-
-
 class ResearchSessionCreate(BaseModel):
     query: str = Field(min_length=1)
     tool_calls_budget: Optional[int] = Field(None, ge=1, le=1000)
@@ -83,17 +58,6 @@ class ResearchSessionUpdate(BaseModel):
     actual_duration_minutes: Optional[int] = None
     tool_calls_used: Optional[int] = None
     error_message: Optional[str] = None
-
-
-class ProjectResponse(BaseModel):
-    """Public project data for API responses"""
-    id: UUID
-    name: str
-    description: Optional[str]
-    is_archived: bool
-    created_at: datetime
-    updated_at: datetime
-    research_sessions_count: int = 0
 
 
 class ResearchSessionResponse(BaseModel):
@@ -112,3 +76,37 @@ class ResearchSessionResponse(BaseModel):
     updated_at: datetime
     error_message: Optional[str]
     retry_count: int
+
+
+#--------------------------------Project--------------------------------
+
+class Project(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    user_id: UUID
+    name: str = Field(min_length=1, max_length=255)
+    description: Optional[str] = None
+    is_archived: bool = False
+    created_at: datetime = Field(default_factory=datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=datetime.now(timezone.utc))
+    
+    class Config:
+        from_attributes = True
+
+class ProjectCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    description: Optional[str] = None
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    is_archived: Optional[bool] = None
+
+class ProjectResponse(BaseModel):
+    """Public project data for API responses"""
+    id: UUID
+    name: str
+    description: Optional[str]
+    is_archived: bool
+    created_at: datetime
+    updated_at: datetime
+    research_sessions_count: int = 0

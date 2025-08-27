@@ -7,7 +7,7 @@ These events represent important business occurrences in the research process.
 
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .base import DomainEvent, EventMetadata
 
@@ -111,7 +111,7 @@ class ResearchTaskStarted(DomainEvent):
             "task_description": task_description,
             "task_type": task_type,
             "estimated_tool_calls": estimated_tool_calls,
-            "started_at": datetime.utcnow().isoformat()
+            "started_at": datetime.now(timezone.utc).isoformat()
         }
         
         metadata = EventMetadata(
@@ -151,7 +151,7 @@ class ResearchTaskProgress(DomainEvent):
             "stage": stage,
             "message": message,
             "tool_calls_made": tool_calls_made,
-            "progress_at": datetime.utcnow().isoformat()
+            "progress_at": datetime.now(timezone.utc).isoformat()
         }
         
         metadata = EventMetadata(
@@ -195,7 +195,7 @@ class ResearchTaskCompleted(DomainEvent):
             "tool_calls_used": tool_calls_used,
             "sources_count": sources_count,
             "research_verdict": research_verdict,
-            "completed_at": datetime.utcnow().isoformat()
+            "completed_at": datetime.now(timezone.utc).isoformat()
         }
         
         metadata = EventMetadata(
@@ -372,7 +372,7 @@ class ResearchSessionCancelled(DomainEvent):
             "reason": reason,
             "completed_tasks": completed_tasks,
             "partial_duration_seconds": partial_duration_seconds,
-            "cancelled_at": datetime.utcnow().isoformat()
+            "cancelled_at": datetime.now(timezone.utc).isoformat()
         }
         
         metadata = EventMetadata(
@@ -424,6 +424,114 @@ class HumanFeedbackReceived(DomainEvent):
         super().__init__(
             aggregate_id=session_id,
             event_type="research.feedback.received",
+            data=data,
+            metadata=metadata
+        )
+
+
+@dataclass(frozen=True)
+class ResearchTaskProgress(DomainEvent):
+    """
+    Event emitted during research task execution to show progress.
+    This event provides real-time updates on task completion.
+    """
+
+    def __init__(
+        self,
+        task_id: str,
+        session_id: str,
+        progress_percentage: int,
+        progress_message: str,
+        current_action: Optional[str] = None,
+        tools_used: Optional[int] = None,
+        sources_found: Optional[int] = None,
+        correlation_id: Optional[str] = None
+    ):
+        data = {
+            "progress_percentage": progress_percentage,
+            "progress_message": progress_message,
+            "current_action": current_action,
+            "tools_used": tools_used,
+            "sources_found": sources_found
+        }
+
+        metadata = EventMetadata(
+            correlation_id=correlation_id,
+            session_id=session_id,
+            source="research_worker"
+        )
+
+        super().__init__(
+            aggregate_id=task_id,
+            event_type="research.task.progress",
+            data=data,
+            metadata=metadata
+        )
+
+
+@dataclass(frozen=True)
+class ResearchPlanGenerated(DomainEvent):
+    """
+    Event emitted when a research plan is generated.
+    This event marks the planning phase completion.
+    """
+
+    def __init__(
+        self,
+        session_id: str,
+        plan_data: Dict[str, Any],
+        correlation_id: Optional[str] = None
+    ):
+        data = {
+            "total_tasks": plan_data.get("total_tasks"),
+            "estimated_duration_minutes": plan_data.get("estimated_duration_minutes"),
+            "research_approach": plan_data.get("research_approach"),
+            "plan_summary": plan_data.get("plan_summary")
+        }
+
+        metadata = EventMetadata(
+            correlation_id=correlation_id,
+            session_id=session_id,
+            source="research_planner"
+        )
+
+        super().__init__(
+            aggregate_id=session_id,
+            event_type="research.plan.generated",
+            data=data,
+            metadata=metadata
+        )
+
+
+@dataclass(frozen=True)
+class ResearchReportGenerated(DomainEvent):
+    """
+    Event emitted when a research report is generated.
+    This event marks the final output generation phase of research.
+    """
+
+    def __init__(
+        self,
+        session_id: str,
+        report_data: Dict[str, Any],
+        correlation_id: Optional[str] = None
+    ):
+        data = {
+            "report_length": report_data.get("report_length"),
+            "sections_count": report_data.get("sections_count"),
+            "sources_cited": report_data.get("sources_cited"),
+            "quality_score": report_data.get("quality_score")
+        }
+
+        metadata = EventMetadata(
+            correlation_id=correlation_id,
+            session_id=session_id,
+            source="research_orchestrator"
+        )
+
+        super().__init__(
+            aggregate_id=session_id,
+            event_type="research.report.generated",
             data=data,
             metadata=metadata
         )

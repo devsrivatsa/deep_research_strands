@@ -7,6 +7,7 @@ from sub_agents.human_feedback_manager.agent import manage_human_feedback
 from sub_agents.research_workflow.workflow import run_research_workflow
 from domain import ResearchPlan, HumanFeedbackDecision
 from jinja2 import Environment
+from typing import Optional
 
 logging.getLogger("strands.multiagent").setLevel(logging.DEBUG)
 logging.basicConfig(
@@ -16,10 +17,10 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()]
 )
 jinja_env = Environment()
-
-async def run_research_planning_phase() -> Optional[ResearchPlan]:
+# can be updated to take in an event instead of user_input. The user_input comes from the frontend via websocket
+async def run_research_planning_phase(user_input: str) -> Optional[ResearchPlan]:
     revision_no = 0
-    user_input = input("Enter your query:\n\n")
+    #user_input = input("Enter your query:\n\n")
     while revision_no < 5:
         query_analysis: QueryAnalysis = query_analysis(user_input)
         initial_research_request_prompt = jinja_env.from_string("""
@@ -43,7 +44,9 @@ async def run_research_planning_phase() -> Optional[ResearchPlan]:
             query_type=query_analysis.query_type.model_dump_json()
         )
         research_plan = generate_new_research_plan(initial_research_request_prompt)
+        #hint for agent:
         #TODO: a json structure to present the research plan to the frontend. for now just presenting the raw research.
+        #this can generate an event to be sent to the frontend via websocket.
 
         user_feedback: HumanFeedbackDecision = manage_human_feedback(research_plan=research_plan, query_analysis=query_analysis, user_feedback=None)
         while user_feedback.action != "proceed":

@@ -9,6 +9,13 @@ dependencies = [
     "langfuse>=3.2.1",
     "strands-agents-tools>=0.2.1",
     "strands-agents[anthropic,ollama,otel]>=1.0.1",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "fastapi>=0.104.0",
+    # Enhanced Langfuse integration
+    "langfuse[openai]>=3.2.1",  # Includes OpenAI integration for LLM tracking
 ]
 
 [dependency-groups]

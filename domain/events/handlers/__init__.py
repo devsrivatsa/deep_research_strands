@@ -10,9 +10,15 @@ from .research_handlers import (
     ResearchMetricsCollector,
     ResearchAuditLogger
 )
+from .langfuse_research_handlers import (
+    LangfuseResearchProgressTracker,
+    LangfuseResearchMetricsCollector
+)
 
 __all__ = [
     "ResearchProgressTracker",
     "ResearchMetricsCollector", 
-    "ResearchAuditLogger"
+    "ResearchAuditLogger",
+    "LangfuseResearchProgressTracker",
+    "LangfuseResearchMetricsCollector"
 ]
