@@ -71,6 +71,7 @@ class LangfuseResearchProgressTracker(EventHandler):
                 await self._handle_session_completed(event)
             case ResearchSessionCancelled():
                 await self._handle_session_cancelled(event)
+                await self._mark_session_cancelled(event)
     
     @observe(name="session_started")
     async def _handle_session_started(self, event: ResearchSessionStarted) -> None:
@@ -95,7 +96,7 @@ class LangfuseResearchProgressTracker(EventHandler):
             }
         }
         
-        # Update Langfuse trace with session metadata
+        # when session is started, we need to update the trace with the session metadata
         if self._langfuse_client:
             self._langfuse_client.update_current_trace(
                 name=f"Research Session: {event.data.get('query', 'Unknown Query')[:50]}...",
@@ -398,6 +399,8 @@ class LangfuseResearchMetricsCollector(EventHandler):
             "efficiency_scores": [],
             "last_updated": None
         }
+        # In-memory tracking of dataset items for correlation
+        self._session_dataset_items: Dict[str, Dict[str, Any]] = {}
         try:
             self._langfuse_client = Langfuse()
         except Exception:
@@ -406,29 +409,30 @@ class LangfuseResearchMetricsCollector(EventHandler):
     @observe(name="collect_metrics")
     async def handle(self, event: DomainEvent) -> None:
         """Collect metrics with Langfuse dataset integration"""
-        if isinstance(event, ResearchSessionStarted):
-            self._metrics["total_sessions"] += 1
-            await self._create_session_dataset_item(event)
+        match event:
+            case ResearchSessionStarted():
+                self._metrics["total_sessions"] += 1
+                await self._create_session_dataset_item(event)
             
-        elif isinstance(event, ResearchSessionCompleted):
-            self._metrics["completed_sessions"] += 1
-            self._update_session_duration_metric(event.data.get("total_duration_seconds", 0))
-            await self._update_session_dataset_item(event)
+            case ResearchSessionCompleted():
+                self._metrics["completed_sessions"] += 1
+                self._update_session_duration_metric(event.data.get("total_duration_seconds", 0))
+                await self._update_session_dataset_item(event)
             
-        elif isinstance(event, ResearchSessionCancelled):
-            self._metrics["cancelled_sessions"] += 1
+            case ResearchSessionCancelled():
+                self._metrics["cancelled_sessions"] += 1
             
-        elif isinstance(event, ResearchTaskStarted):
-            self._metrics["total_tasks"] += 1
+            case ResearchTaskStarted():
+                self._metrics["total_tasks"] += 1
             
-        elif isinstance(event, ResearchTaskCompleted):
-            self._metrics["completed_tasks"] += 1
-            self._metrics["total_tool_calls"] += event.data.get("tool_calls_used", 0)
-            self._update_task_duration_metric(event.data.get("duration_seconds", 0))
+            case ResearchTaskCompleted():
+                self._metrics["completed_tasks"] += 1
+                self._metrics["total_tool_calls"] += event.data.get("tool_calls_used", 0)
+                self._update_task_duration_metric(event.data.get("duration_seconds", 0))
             
-        elif isinstance(event, ResearchTaskFailed):
-            self._metrics["failed_tasks"] += 1
-            self._metrics["total_tool_calls"] += event.data.get("tool_calls_made", 0)
+            case ResearchTaskFailed():
+                self._metrics["failed_tasks"] += 1
+                self._metrics["total_tool_calls"] += event.data.get("tool_calls_made", 0)
         
         self._metrics["last_updated"] = datetime.now(timezone.utc).isoformat()
         
@@ -439,25 +443,196 @@ class LangfuseResearchMetricsCollector(EventHandler):
     async def _create_session_dataset_item(self, event: ResearchSessionStarted):
         """Create a dataset item in Langfuse for this research session"""
         if self._langfuse_client:
-            self._langfuse_client.create_dataset_item(
-                dataset_name="research_sessions",
-                input={
-                    "query": event.data.get("query"),
-                    "project_id": event.data.get("project_id"),
-                    "estimated_duration": event.data.get("estimated_duration_minutes")
-                },
-                expected_output=None,  # Will be updated on completion
-                metadata={
-                    "session_id": event.metadata.session_id,
-                    "user_id": event.metadata.user_id,
-                    "started_at": event.timestamp.isoformat()
+            try:
+                # Create the dataset item in Langfuse backend
+                dataset_item = self._langfuse_client.create_dataset_item(
+                    dataset_name="research_sessions",
+                    input={
+                        "query": event.data.get("query"),
+                        "project_id": event.data.get("project_id"),
+                        "estimated_duration": event.data.get("estimated_duration_minutes")
+                    },
+                    expected_output=None,  # Will be updated on completion
+                    metadata={
+                        "session_id": event.metadata.session_id,
+                        "user_id": event.metadata.user_id,
+                        "started_at": event.timestamp.isoformat()
+                    }
+                )
+                
+                # Store reference in memory for later updates
+                self._session_dataset_items[event.metadata.session_id] = {
+                    "dataset_item_id": dataset_item.id,  # Store the ID for updates
+                    "input": event.data.get("query"),
+                    "started_at": event.timestamp.isoformat(),
+                    "status": "in_progress",
+                    "project_id": event.data.get("project_id")
                 }
-            )
+                
+                logger.debug(f"Created dataset item for session {event.metadata.session_id}")
+                
+            except Exception as e:
+                logger.error(f"Failed to create dataset item for session {event.metadata.session_id}: {e}")
+                # Store basic info even if Langfuse fails
+                self._session_dataset_items[event.metadata.session_id] = {
+                    "dataset_item_id": None,
+                    "input": event.data.get("query"),
+                    "started_at": event.timestamp.isoformat(),
+                    "status": "in_progress",
+                    "project_id": event.data.get("project_id"),
+                    "error": str(e)
+                }
     
     async def _update_session_dataset_item(self, event: ResearchSessionCompleted):
         """Update the dataset item with completion data"""
-        # In a real implementation, you'd find and update the existing dataset item
-        pass
+        session_id = event.metadata.session_id
+        
+        if session_id in self._session_dataset_items:
+            session_data = self._session_dataset_items[session_id]
+            
+            # Update in-memory tracking
+            session_data["status"] = "completed"
+            session_data["completed_at"] = event.timestamp.isoformat()
+            session_data["final_metrics"] = {
+                "total_tasks": event.data.get("total_tasks", 0),
+                "successful_tasks": event.data.get("successful_tasks", 0),
+                "failed_tasks": event.data.get("failed_tasks", 0),
+                "total_duration_seconds": event.data.get("total_duration_seconds", 0),
+                "total_tool_calls": event.data.get("total_tool_calls", 0),
+                "success_rate": event.data.get("success_rate", 0.0),
+                "final_report_length": event.data.get("final_report_length", 0)
+            }
+            
+            # Update the dataset item in Langfuse backend if we have a valid ID
+            if session_data["dataset_item_id"] and self._langfuse_client:
+                try:
+                    self._langfuse_client.update_dataset_item(
+                        id=session_data["dataset_item_id"],
+                        expected_output={
+                            "final_report": event.data.get("final_report", ""),
+                            "total_tasks": event.data.get("total_tasks", 0),
+                            "successful_tasks": event.data.get("successful_tasks", 0),
+                            "failed_tasks": event.data.get("failed_tasks", 0),
+                            "total_duration_seconds": event.data.get("total_duration_seconds", 0),
+                            "total_tool_calls": event.data.get("total_tool_calls", 0),
+                            "success_rate": event.data.get("success_rate", 0.0)
+                        },
+                        metadata={
+                            "completed_at": event.timestamp.isoformat(),
+                            "final_report_length": event.data.get("final_report_length", 0),
+                            "session_status": "completed"
+                        }
+                    )
+                    
+                    logger.debug(f"Updated dataset item for completed session {session_id}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to update dataset item for session {session_id}: {e}")
+                    session_data["update_error"] = str(e)
+            else:
+                logger.warning(f"No valid dataset item ID for session {session_id}, skipping update")
+            
+            # Clean up old completed sessions to prevent memory bloat
+            await self._cleanup_old_sessions()
+        else:
+            logger.warning(f"Session {session_id} not found in dataset tracking, skipping update")
+    
+    async def _mark_session_cancelled(self, event: ResearchSessionCancelled):
+        """Mark a session as cancelled in the dataset tracking"""
+        session_id = event.metadata.session_id
+        
+        if session_id in self._session_dataset_items:
+            session_data = self._session_dataset_items[session_id]
+            
+            # Update in-memory tracking
+            session_data["status"] = "cancelled"
+            session_data["cancelled_at"] = event.timestamp.isoformat()
+            session_data["cancellation_reason"] = event.data.get("reason", "Unknown")
+            
+            # Update the dataset item in Langfuse backend if we have a valid ID
+            if session_data["dataset_item_id"] and self._langfuse_client:
+                try:
+                    self._langfuse_client.update_dataset_item(
+                        id=session_data["dataset_item_id"],
+                        expected_output=None,  # No output for cancelled sessions
+                        metadata={
+                            "cancelled_at": event.timestamp.isoformat(),
+                            "cancellation_reason": event.data.get("reason", "Unknown"),
+                            "session_status": "cancelled"
+                        }
+                    )
+                    
+                    logger.debug(f"Updated dataset item for cancelled session {session_id}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to update dataset item for cancelled session {session_id}: {e}")
+                    session_data["update_error"] = str(e)
+        else:
+            logger.warning(f"Session {session_id} not found in dataset tracking, cannot mark as cancelled")
+    
+    async def _cleanup_old_sessions(self):
+        """Clean up old completed sessions to prevent memory bloat"""
+        try:
+            current_time = datetime.now(timezone.utc)
+            sessions_to_remove = []
+            
+            for session_id, session_data in self._session_dataset_items.items():
+                if session_data["status"] == "completed":
+                    # Remove sessions completed more than 24 hours ago
+                    if "completed_at" in session_data:
+                        completed_time = datetime.fromisoformat(session_data["completed_at"])
+                        if (current_time - completed_time).total_seconds() > 86400:  # 24 hours
+                            sessions_to_remove.append(session_id)
+                
+                # Also remove sessions with errors that are older than 1 hour
+                elif "error" in session_data and "started_at" in session_data:
+                    started_time = datetime.fromisoformat(session_data["started_at"])
+                    if (current_time - started_time).total_seconds() > 3600:  # 1 hour
+                        sessions_to_remove.append(session_id)
+            
+            # Remove old sessions
+            for session_id in sessions_to_remove:
+                del self._session_dataset_items[session_id]
+                logger.debug(f"Cleaned up old session {session_id}")
+            
+            # If we still have too many sessions, remove oldest ones
+            if len(self._session_dataset_items) > 1000:  # Keep max 1000 sessions in memory
+                oldest_sessions = sorted(
+                    self._session_dataset_items.items(),
+                    key=lambda x: x[1].get("started_at", "0")
+                )[:500]  # Remove oldest 500
+                
+                for session_id, _ in oldest_sessions:
+                    del self._session_dataset_items[session_id]
+                
+                logger.info(f"Cleaned up {len(oldest_sessions)} old sessions to maintain memory limit")
+                
+        except Exception as e:
+            logger.error(f"Error during session cleanup: {e}")
+    
+    def get_dataset_statistics(self) -> Dict[str, Any]:
+        """Get statistics about the tracked dataset items"""
+        if not self._session_dataset_items:
+            return {"total_sessions": 0, "status_breakdown": {}}
+        
+        status_counts = {}
+        for session_data in self._session_dataset_items.values():
+            status = session_data.get("status", "unknown")
+            status_counts[status] = status_counts.get(status, 0) + 1
+        
+        return {
+            "total_sessions": len(self._session_dataset_items),
+            "status_breakdown": status_counts,
+            "memory_usage_mb": len(str(self._session_dataset_items)) / (1024 * 1024),  # Rough estimate
+            "oldest_session": min(
+                (data.get("started_at") for data in self._session_dataset_items.values() if data.get("started_at")),
+                default=None
+            ),
+            "newest_session": max(
+                (data.get("started_at") for data in self._session_dataset_items.values() if data.get("started_at")),
+                default=None
+            )
+        }
     
     async def _send_metrics_to_langfuse(self):
         """Send aggregated metrics to Langfuse as events"""
@@ -500,3 +675,20 @@ class LangfuseResearchMetricsCollector(EventHandler):
     @property
     def priority(self) -> EventPriority:
         return EventPriority.NORMAL
+
+    def get_session_details(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Get detailed information about a specific session"""
+        if session_id in self._session_dataset_items:
+            return self._session_dataset_items[session_id].copy()
+        return None
+    
+    def get_all_session_ids(self) -> list:
+        """Get list of all tracked session IDs"""
+        return list(self._session_dataset_items.keys())
+    
+    def get_sessions_by_status(self, status: str) -> list:
+        """Get all sessions with a specific status"""
+        return [
+            session_id for session_id, data in self._session_dataset_items.items()
+            if data.get("status") == status
+        ]

@@ -1,8 +1,11 @@
 from strands import Agent, tool
 from strands_tools import handoff_to_user
 from jinja2 import Environment
-from typing import Optional
-from domain import HumanFeedbackDecision, ResearchPlan, QueryAnalysis
+from typing import Optional, Dict, Any
+from domain import HumanFeedbackDecision, StraightforwardResearchPlan, DepthFirstResearchPlan, BreadthFirstResearchPlan
+
+# Define ResearchPlan as a union type
+ResearchPlan = StraightforwardResearchPlan | DepthFirstResearchPlan | BreadthFirstResearchPlan
 
 human_feedback_manager_prompt = """
 You are a human feedback manager. You are responsible for presenting a complex research plan to the user, and analyzing the user feedback to decide how to proceed further in the research.
@@ -51,7 +54,7 @@ human_feedback_manager = Agent(
 async def manage_human_feedback(
         user_feedback: Optional[str]=None, 
         research_plan: Optional[ResearchPlan]=None, 
-        query_analysis: Optional[QueryAnalysis]=None
+        query_analysis: Optional[Dict[str, Any]]=None
     ) -> str:
         prompt = """
         {% if user_feedback %}
@@ -90,9 +93,9 @@ async def manage_human_feedback(
         .render(
             user_feedback=user_feedback,
             research_plan=research_plan,
-            query_type=query_analysis.query_type,
-            query_type_reasoning=query_analysis.query_type_reasoning,
-            query_components=query_analysis.query_components,
+            query_type=query_analysis['query_type'],
+            query_type_reasoning=query_analysis['query_type_reasoning'],
+            query_components=query_analysis['query_components'],
         )
 
         return await human_feedback_manager.structured_output_async(HumanFeedbackDecision,prompt)

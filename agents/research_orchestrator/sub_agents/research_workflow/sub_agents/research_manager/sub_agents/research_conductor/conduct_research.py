@@ -9,8 +9,8 @@ from domain import (
 )
 from jinja2 import Environment
 from sub_agents.research_worker.agent import research_task 
-from agents.research_orchestrator.sub_agents.reserch_workflow.sub_agents.research_manager.sub_agents.research_conductor.sub_agents.research_aggergator import compress_research
-from agents.research_orchestrator.sub_agents.reserch_workflow.sub_agents.research_manager.sub_agents.research_conductor.sub_agents.research_verifier import verify_research
+from sub_agents.research_aggergator import compress_research
+from sub_agents.research_verifier import verify_research
 import asyncio
 from typing import Dict, Any, List, Tuple, Optional
 from pydantic import BaseModel
@@ -22,34 +22,32 @@ class ParallelResearchConfig(BaseModel):
 async def _single_task_rloop(rt: str):
     """Orchestrate the single task research loop"""
     #TODO: handle errors if rt is not up to the standard
-    research_output: ResearchOutput = research_task(rt)
+    research_output: ResearchOutput = await research_task(rt)
     if not research_output.research_output or len(research_output.research_output) == 0:
         return {
             "Error": "No research output was returned from the research task",
         }
-    compressed_research_output: CompressedResearchOutput = compress_research(research_output)
-    final_research_review: FinalResearchReview = verify_research(compressed_research_output)
+    compressed_research_output: CompressedResearchOutput = await compress_research(research_output)
+    final_research_review: FinalResearchReview = await verify_research(compressed_research_output)
     return (rt, research_output, compressed_research_output, final_research_review)
 
 async def _sequential_rloop(rt_list: List[str]):
     """Orchestrate the sequential research loop. Tasks are executed in order, and the output of each task is used as input to the next task."""
     research_output = []
     for rt in rt_list:
-        research_output: ResearchOutput = research_task(rt)
+        research_output: ResearchOutput = await research_task(rt)
         if not research_output.research_output or len(research_output.research_output) == 0:
             #TODO: handle errors if research_output is not up to the standard
             return {
                 "research_verdict": "research_incomplete",
-                "error_message": "No research output was returned from the research task",
-                "what else do i put here": "should brains"
+                "error_message": "No research output was returned from the research task"
             }
-        compressed_research_output: CompressedResearchOutput = compress_research(research_output)
-        #TODO: handle errors if compressed_research_output is not up to the standard
-        final_research_review: FinalResearchReview = verify_research(compressed_research_output)
-        #TODO: handle errors if final_research_review is not up to the standard
+        compressed_research_output: CompressedResearchOutput = await compress_research(research_output)
+        
+        final_research_review: FinalResearchReview = await verify_research(compressed_research_output)
+      
         research_output.append((rt, research_output, compressed_research_output, final_research_review))
     
-    #TODO: construct report for the _sequential_rloop; DO not return the research_output_list.
     return research_output
 
 async def _conduct_research(research_job: ResearchJob):

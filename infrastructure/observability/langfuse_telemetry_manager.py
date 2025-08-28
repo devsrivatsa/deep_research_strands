@@ -98,7 +98,7 @@ class LangfuseTelemetryManager:
             self._tracer = trace.get_tracer("deepresearch.domain.events")
             
             self._initialized = True
-            logger.info("🚀 Enhanced telemetry initialization completed successfully")
+            logger.info("Telemetry initialization completed successfully")
             
         except Exception as e:
             logger.error(f"Failed to initialize telemetry: {e}")
@@ -258,9 +258,9 @@ def with_research_generation(model: str, name: Optional[str] = None, **kwargs):
     """
     def decorator(func):
         async def async_wrapper(*args, **func_kwargs):
-            client = get_client()
-            if client:
-                with client.start_as_current_generation(
+            manager = get_langfuse_telemetry_manager()
+            if manager and manager.langfuse_client:
+                with manager.langfuse_client.start_as_current_generation(
                     name=name or func.__name__, 
                     model=model, 
                     **kwargs
@@ -273,9 +273,9 @@ def with_research_generation(model: str, name: Optional[str] = None, **kwargs):
                 return await func(*args, **func_kwargs)
         
         def sync_wrapper(*args, **func_kwargs):
-            client = get_client()
-            if client:
-                with client.start_as_current_generation(
+            manager = get_langfuse_telemetry_manager()
+            if manager and manager.langfuse_client:
+                with manager.langfuse_client.start_as_current_generation(
                     name=name or func.__name__, 
                     model=model, 
                     **kwargs

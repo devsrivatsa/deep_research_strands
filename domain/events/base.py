@@ -16,10 +16,10 @@ import asyncio
 
 class EventPriority(Enum):
     """Priority levels for event processing"""
-    LOW = "low"
-    NORMAL = "normal"
-    HIGH = "high"
-    CRITICAL = "critical"
+    LOW = 1
+    NORMAL = 2
+    HIGH = 3
+    CRITICAL = 4
 
 
 @dataclass(frozen=True)

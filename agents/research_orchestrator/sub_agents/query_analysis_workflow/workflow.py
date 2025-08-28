@@ -1,5 +1,5 @@
-from sub_agents.query_components_analyzer import query_components_analysis
-from sub_agents.query_type_analyzer import query_type_analysis
+from .sub_agents.query_components_analyzer import query_components_analysis
+from .sub_agents.query_type_analyzer import query_type_analysis
 
 async def query_analysis(query: str) -> dict:
     query_components = await query_components_analysis(query)

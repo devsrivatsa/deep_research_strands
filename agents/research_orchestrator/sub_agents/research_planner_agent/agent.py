@@ -1,8 +1,8 @@
 from strands import Agent, tool
-from sub_agents.general_research_planner import general_research_planner
-from sub_agents.depth_first_planner import depth_first_planner
-from sub_agents.breadth_first_planner import breadth_first_planner
-from domain import GeneralResearchPlan, DepthFirstResearchPlan, BreadthFirstResearchPlan
+from .sub_agents.general_research_planner import general_research_planner
+from .sub_agents.depth_first_planner import depth_first_planner
+from .sub_agents.breadth_first_planner import breadth_first_planner
+from domain import StraightforwardResearchPlan, DepthFirstResearchPlan, BreadthFirstResearchPlan
 from typing import Annotated
 
 
@@ -45,7 +45,7 @@ research_planner_agent = Agent(
 )
 
 ResearchPlan = Annotated[
-    GeneralResearchPlan | DepthFirstResearchPlan | BreadthFirstResearchPlan,
+    StraightforwardResearchPlan | DepthFirstResearchPlan | BreadthFirstResearchPlan,
     "A research plan that can be any of the three types"
 ]
 

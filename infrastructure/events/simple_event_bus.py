@@ -28,7 +28,7 @@ class SimpleEventBus:
     def __init__(self):
         self._handlers: Dict[Type[DomainEvent], List[EventHandler]] = {}
         self._running = False
-        logger.info("SimpleEventBus initialized for Langfuse SDK v3")
+        logger.info("SimpleEventBus initialized")
     
     async def publish(self, event: DomainEvent) -> None:
         """Publish an event to all registered handlers"""

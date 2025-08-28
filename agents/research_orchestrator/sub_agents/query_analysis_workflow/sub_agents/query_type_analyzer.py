@@ -40,33 +40,42 @@ query_type_analyzer_agent = Agent(
 )
 
 async def query_type_analysis(query_components: QueryComponents) -> QueryType:
+    # Build components prompt without problematic f-string expressions
+    main_concepts_text = "\n".join(query_components.main_concepts) if query_components.main_concepts else ""
+    key_entities_text = "\n".join(query_components.key_entities) if query_components.key_entities else ""
+    relationships_text = "\n".join(query_components.relationships) if query_components.relationships else ""
+    temporal_constraints_text = "\n".join(query_components.temporal_constraints) if query_components.temporal_constraints else ""
+    important_features_text = "\n".join(query_components.important_features) if query_components.important_features else ""
+    tools_needed_text = "\n".join(query_components.tools_needed) if query_components.tools_needed else ""
+    other_details_text = query_components.other_details if query_components.other_details else ""
+    
     components_prompt = f"""
     <main_concepts>
-    {"\n".join(query_components.main_concepts)}
+    {main_concepts_text}
     </main_concepts>
 
     <key_entities>
-    {"\n".join(query_components.key_entities)}
+    {key_entities_text}
     </key_entities>
 
     <relationships>
-    {"\n".join(query_components.relationships)}
+    {relationships_text}
     </relationships>
     
     <temporal_constraints>
-    {"\n".join(query_components.temporal_constraints)}
+    {temporal_constraints_text}
     </temporal_constraints>
 
     <important_features>
-    {"\n".join(query_components.important_features)}
+    {important_features_text}
     </important_features>
 
     <tools_needed>
-    {"\n".join(query_components.tools_needed) if query_components.tools_needed else ""}
+    {tools_needed_text}
     </tools_needed>
 
     <other_details>
-    {query_components.other_details if query_components.other_details else ""}
+    {other_details_text}
     </other_details>
     """
 
