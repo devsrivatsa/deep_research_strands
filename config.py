@@ -3,6 +3,9 @@ import base64
 from dotenv import load_dotenv, find_dotenv
 from pydantic import BaseModel, Field
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_google_api_key():
@@ -38,7 +41,17 @@ class Config(BaseModel):
         # Get base configuration
         langfuse_public_key = os.getenv("LANGFUSE_PUBLIC_KEY")
         langfuse_secret_key = os.getenv("LANGFUSE_SECRET_KEY") 
-        langfuse_host = os.getenv("LANGFUSE_HOST")
+        langfuse_host = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")  # Default to cloud
+        
+        # Validate Langfuse configuration
+        if langfuse_public_key and langfuse_secret_key:
+            if not langfuse_host:
+                logger.warning("LANGFUSE_HOST not set, defaulting to cloud instance")
+                langfuse_host = "https://cloud.langfuse.com"
+            
+            logger.info(f"Langfuse configured for: {langfuse_host}")
+        else:
+            logger.warning("Langfuse credentials not provided, observability will be limited")
         
         # Configure OpenTelemetry for Langfuse integration
         langfuse_auth = None
@@ -52,7 +65,14 @@ class Config(BaseModel):
             ).decode()
             
             # Set up OTLP endpoint and headers for Langfuse
-            otel_endpoint = f"{langfuse_host}/api/public/ingestion"
+            # For local instances, use the correct endpoint path
+            if langfuse_host.startswith("http://localhost") or langfuse_host.startswith("http://127.0.0.1"):
+                # Local instance typically uses different endpoint
+                otel_endpoint = f"{langfuse_host}/api/public/ingestion"
+            else:
+                # Cloud instance
+                otel_endpoint = f"{langfuse_host}/api/public/ingestion"
+            
             otel_headers = f"Authorization=Basic {langfuse_auth}"
             
             # Set environment variables for OpenTelemetry

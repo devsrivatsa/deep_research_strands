@@ -430,6 +430,49 @@ class HumanFeedbackReceived(DomainEvent):
 
 
 @dataclass(frozen=True)
+class HumanFeedbackRequired(DomainEvent):
+    """
+    Event emitted when human feedback is required for a research plan.
+    
+    This event indicates that the system is waiting for user input
+    on a generated research plan before proceeding.
+    """
+    
+    def __init__(
+        self,
+        session_id: str,
+        plan_presentation: str,  # Human-readable plan from plan_presenter
+        research_plan: Any,      # Original structured research plan
+        query_analysis: Dict[str, Any],  # Query analysis context
+        revision_number: int = 0,
+        correlation_id: Optional[str] = None,
+        user_id: Optional[str] = None
+    ):
+        data = {
+            "plan_presentation": plan_presentation,
+            "research_plan": research_plan,
+            "query_analysis": query_analysis,
+            "revision_number": revision_number,
+            "requires_feedback": True,
+            "feedback_deadline": None  # Could be added later for timeouts
+        }
+        
+        metadata = EventMetadata(
+            correlation_id=correlation_id,
+            user_id=user_id,
+            session_id=session_id,
+            source="research_orchestrator"
+        )
+        
+        super().__init__(
+            aggregate_id=session_id,
+            event_type="human.feedback.required",
+            data=data,
+            metadata=metadata
+        )
+
+
+@dataclass(frozen=True)
 class ResearchTaskProgress(DomainEvent):
     """
     Event emitted during research task execution to show progress.

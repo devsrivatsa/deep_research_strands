@@ -8,6 +8,7 @@ enhanced observability and automatic trace correlation.
 import logging
 from typing import Type, Dict, Any, Optional
 from datetime import datetime, timezone
+import os
 
 from langfuse import Langfuse, observe
 from ..base import DomainEvent, EventHandler, EventPriority
@@ -34,8 +35,24 @@ class LangfuseResearchProgressTracker(EventHandler):
     def __init__(self):
         self._session_progress: Dict[str, Dict[str, Any]] = {}
         try:
+            # Initialize Langfuse client with proper configuration
+            if os.getenv("LANGFUSE_HOST"):
+                logger.info(f"Initializing Langfuse client for: {os.getenv('LANGFUSE_HOST')}")
+            else:
+                logger.info("Initializing Langfuse client for cloud instance")
+            
             self._langfuse_client = Langfuse()
-        except Exception:
+            
+            # Test the connection
+            try:
+                test_response = self._langfuse_client.get_project()
+                logger.info(f"✅ Langfuse client connected successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to connect to Langfuse: {e}")
+                self._langfuse_client = None
+                
+        except Exception as e:
+            logger.error(f"Failed to initialize Langfuse client: {e}")
             self._langfuse_client = None
         
     @observe(name="research_event_handler")
@@ -402,8 +419,24 @@ class LangfuseResearchMetricsCollector(EventHandler):
         # In-memory tracking of dataset items for correlation
         self._session_dataset_items: Dict[str, Dict[str, Any]] = {}
         try:
+            # Initialize Langfuse client with proper configuration
+            if os.getenv("LANGFUSE_HOST"):
+                logger.info(f"Initializing Langfuse client for: {os.getenv('LANGFUSE_HOST')}")
+            else:
+                logger.info("Initializing Langfuse client for cloud instance")
+            
             self._langfuse_client = Langfuse()
-        except Exception:
+            
+            # Test the connection
+            try:
+                test_response = self._langfuse_client.get_project()
+                logger.info(f"✅ Langfuse client connected successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to connect to Langfuse: {e}")
+                self._langfuse_client = None
+                
+        except Exception as e:
+            logger.error(f"Failed to initialize Langfuse client: {e}")
             self._langfuse_client = None
     
     @observe(name="collect_metrics")

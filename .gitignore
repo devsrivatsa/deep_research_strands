@@ -6,6 +6,7 @@ dist/
 wheels/
 *.egg-info
 .kiro/
+.vscode/
 
 # Virtual environments
 .venv

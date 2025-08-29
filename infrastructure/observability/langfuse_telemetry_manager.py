@@ -58,10 +58,23 @@ class LangfuseTelemetryManager:
                 
                 if self.config.langfuse_host:
                     os.environ["LANGFUSE_HOST"] = self.config.langfuse_host
+                    logger.info(f"Connecting to Langfuse at: {self.config.langfuse_host}")
+                else:
+                    logger.warning("LANGFUSE_HOST not set, using default cloud instance")
                 
                 # Initialize Langfuse client (this automatically sets up OpenTelemetry)
                 self._langfuse_client = Langfuse()
-                logger.info(f"✅ Langfuse client initialized: {self.config.langfuse_host}")
+                
+                # Test the connection
+                try:
+                    # Try to get a simple API call to verify connection
+                    test_response = self._langfuse_client.get_project()
+                    logger.info(f"✅ Langfuse client initialized successfully: {self.config.langfuse_host}")
+                    logger.info(f"Project: {test_response.get('name', 'Unknown')}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to connect to Langfuse at {self.config.langfuse_host}: {e}")
+                    logger.warning("Telemetry will continue with limited functionality")
+                    self._langfuse_client = None
             else:
                 logger.warning("⚠️ Langfuse credentials not provided, using OpenTelemetry only")
             

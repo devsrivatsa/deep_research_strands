@@ -4,15 +4,17 @@ from typing import Optional, Dict, Any
 from strands.multiagent import GraphBuilder
 from .sub_agents.query_analysis_workflow.workflow import query_analysis
 from .sub_agents.research_planner_agent.agent import generate_new_research_plan
-from .sub_agents.human_feedback_manager.agent import manage_human_feedback
+from .sub_agents.human_feedback_manager import present_plan, analyze_feedback
 from .sub_agents.research_workflow.workflow import run_research_workflow
 from domain import ResearchPlan, HumanFeedbackDecision
+from infrastructure.websockets.websocket_manager import ResearchWebSocketManager
 from jinja2 import Environment
 
 # Import Phase 3 event integration
 from .event_integration import ResearchOrchestratorEventEmitter
 from .observability_wrapper import observe_orchestrator_function, performance_tracker, metrics_collector
 from domain.events.base import EventBus
+from domain.events.research_events import HumanFeedbackRequired
 
 logging.getLogger("strands.multiagent").setLevel(logging.DEBUG)
 logging.basicConfig(
@@ -85,7 +87,7 @@ async def run_research_planning_phase(event_bus: EventBus, session_id: str) -> O
                 query_type=query_analysis_result.query_type.model_dump_json()
             )
             
-            research_plan = generate_new_research_plan(initial_research_request_prompt)
+            research_plan = await generate_new_research_plan(initial_research_request_prompt)
             
             # Emit decision point for human feedback
             await event_emitter.emit_decision_point(
@@ -96,11 +98,59 @@ async def run_research_planning_phase(event_bus: EventBus, session_id: str) -> O
                 reasoning="Research plan generated, awaiting human feedback"
             )
             
-            user_feedback: HumanFeedbackDecision = manage_human_feedback(
-                research_plan=research_plan, 
-                query_analysis=query_analysis_result, 
-                user_feedback=None
+            # Present the plan to the user via websocket
+            plan_presentation = await present_plan(research_plan, query_analysis_result)
+            
+            # Emit event that plan is ready for feedback
+            await event_emitter.emit_decision_point(
+                decision_type="human_feedback_required",
+                decision_context={"revision": revision_no, "plan_generated": True},
+                decision_options=["proceed", "modify_existing", "develop_new"],
+                selected_option="waiting_for_feedback",
+                reasoning="Research plan generated, awaiting human feedback"
             )
+            
+            # Emit HumanFeedbackRequired event for websocket integration
+            feedback_event = HumanFeedbackRequired(
+                session_id=session_id,
+                plan_presentation=plan_presentation,
+                research_plan=research_plan,
+                query_analysis=query_analysis_result,
+                revision_number=revision_no
+            )
+            await event_bus.publish(feedback_event)
+            
+            # TODO: Replace this with websocket-based feedback
+            # For now, we'll use a simple input to maintain functionality
+            # In the full implementation, this would wait for websocket feedback
+            print(f"\n=== Research Plan (Revision {revision_no + 1}) ===")
+            print(plan_presentation)
+            print("\n=== Feedback Options ===")
+            print("1. proceed - Continue with current plan")
+            print("2. modify_existing - Modify the current plan")
+            print("3. develop_new - Create a completely new plan")
+            
+            feedback_input = input("\nEnter your feedback (1, 2, or 3): ").strip()
+            
+            # Convert input to feedback decision
+            if feedback_input == "1":
+                user_feedback = HumanFeedbackDecision(action="proceed")
+            elif feedback_input == "2":
+                user_feedback = HumanFeedbackDecision(
+                    action="modify_existing",
+                    modification_option="same_approach",
+                    modification_feedback=HumanFeedbackDecision.ModificationFeedback(
+                        retain="Keep the overall approach",
+                        change="Minor adjustments as needed",
+                        addition="",
+                        deletion=""
+                    )
+                )
+            elif feedback_input == "3":
+                user_feedback = HumanFeedbackDecision(action="develop_new")
+            else:
+                # Default to proceed if invalid input
+                user_feedback = HumanFeedbackDecision(action="proceed")
             
             while user_feedback.action != "proceed":
                 revision_no += 1
@@ -171,13 +221,60 @@ async def run_research_planning_phase(event_bus: EventBus, session_id: str) -> O
                     query_components_analysis=query_analysis_result.query_components_analysis.model_dump_json(), 
                     query_type=query_analysis_result.query_type.model_dump_json()
                 )
-                research_plan = generate_new_research_plan(research_request_prompt)               
+                research_plan = await generate_new_research_plan(research_request_prompt)               
             
-                user_feedback = manage_human_feedback(
-                    research_plan=research_plan, 
-                    query_analysis=query_analysis_result, 
-                    user_feedback=user_feedback
+                # Present the modified plan to the user via websocket
+                plan_presentation = await present_plan(research_plan, query_analysis_result)
+                
+                # Emit event that modified plan is ready for feedback
+                await event_emitter.emit_decision_point(
+                    decision_type="human_feedback_required",
+                    decision_context={"revision": revision_no, "plan_modified": True},
+                    decision_options=["proceed", "modify_existing", "develop_new"],
+                    selected_option="waiting_for_feedback",
+                    reasoning="Modified research plan generated, awaiting human feedback"
                 )
+                
+                # Emit HumanFeedbackRequired event for websocket integration
+                feedback_event = HumanFeedbackRequired(
+                    session_id=session_id,
+                    plan_presentation=plan_presentation,
+                    research_plan=research_plan,
+                    query_analysis=query_analysis_result,
+                    revision_number=revision_no
+                )
+                await event_bus.publish(feedback_event)
+                
+                # TODO: Replace this with websocket-based feedback
+                # For now, we'll use a simple input to maintain functionality
+                print(f"\n=== Modified Research Plan (Revision {revision_no + 1}) ===")
+                print(plan_presentation)
+                print("\n=== Feedback Options ===")
+                print("1. proceed - Continue with current plan")
+                print("2. modify_existing - Modify the current plan")
+                print("3. develop_new - Create a completely new plan")
+                
+                feedback_input = input("\nEnter your feedback (1, 2, or 3): ").strip()
+                
+                # Convert input to feedback decision
+                if feedback_input == "1":
+                    user_feedback = HumanFeedbackDecision(action="proceed")
+                elif feedback_input == "2":
+                    user_feedback = HumanFeedbackDecision(
+                        action="modify_existing",
+                        modification_option="same_approach",
+                        modification_feedback=HumanFeedbackDecision.ModificationFeedback(
+                            retain="Keep the overall approach",
+                            change="Minor adjustments as needed",
+                            addition="",
+                            deletion=""
+                        )
+                    )
+                elif feedback_input == "3":
+                    user_feedback = HumanFeedbackDecision(action="develop_new")
+                else:
+                    # Default to proceed if invalid input
+                    user_feedback = HumanFeedbackDecision(action="proceed")
         
         # Planning phase completed successfully
         planning_duration = performance_tracker.end_phase("planning")
@@ -258,7 +355,7 @@ async def orchestrate_research(event_bus: EventBus, session_id: Optional[str] = 
         logger.info(f"Starting research workflow execution for session {session_id}")
         
         # Execute research workflow
-        raw_research_output = run_research_workflow(research_plan)
+        raw_research_output = await run_research_workflow(research_plan)
         
         # Workflow execution completed
         workflow_duration = performance_tracker.end_phase("workflow_execution")
@@ -295,9 +392,7 @@ async def orchestrate_research(event_bus: EventBus, session_id: Optional[str] = 
         orchestration_duration = performance_tracker.end_phase("orchestration")
         performance_tracker.record_error("orchestration")
         
-        error_msg = f"Research orchestration failed: {str(e)}"
-        logger.error(f"{error_msg} after {orchestration_duration:.2f}s")
-        
+        error_msg = f"Research orchestration failed: {e}"
         # Emit workflow failed event
         await event_emitter.emit_workflow_failed(error_msg)
         
@@ -306,17 +401,3 @@ async def orchestrate_research(event_bus: EventBus, session_id: Optional[str] = 
         
         raise
 
-
-# Legacy function for backward compatibility
-async def run_research_planning_phase_legacy() -> Optional[ResearchPlan]:
-    """Legacy function for backward compatibility."""
-    logger.warning("Using legacy research planning function without event bus")
-    # This would need to be implemented or removed based on requirements
-    return None
-
-
-async def orchestrate_research_legacy():
-    """Legacy function for backward compatibility."""
-    logger.warning("Using legacy research orchestration function without event bus")
-    # This would need to be implemented or removed based on requirements
-    pass

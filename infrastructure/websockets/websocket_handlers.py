@@ -20,7 +20,9 @@ from domain.events.research_events import (
     ResearchTaskCompleted,
     ResearchTaskFailed,
     ResearchPlanGenerated,
-    ResearchReportGenerated
+    ResearchReportGenerated,
+    HumanFeedbackRequired,
+    HumanFeedbackReceived
 )
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,7 @@ class WebSocketEventHandlers:
         self.task_handler = ResearchTaskWebSocketHandler(websocket_manager)
         self.progress_handler = ResearchProgressWebSocketHandler(websocket_manager)
         self.planning_handler = ResearchPlanningWebSocketHandler(websocket_manager)
+        self.feedback_handler = HumanFeedbackWebSocketHandler(websocket_manager)
     
     def get_all_handlers(self) -> list:
         """Get all WebSocket event handlers for registration"""
@@ -49,7 +52,8 @@ class WebSocketEventHandlers:
             self.session_handler,
             self.task_handler, 
             self.progress_handler,
-            self.planning_handler
+            self.planning_handler,
+            self.feedback_handler
         ]
 
 
@@ -419,3 +423,82 @@ class ResearchPlanningWebSocketHandler(EventHandler):
     @property
     def priority(self) -> EventPriority:
         return EventPriority.NORMAL
+
+
+class HumanFeedbackWebSocketHandler(EventHandler):
+    """Handles human feedback workflow events"""
+    
+    def __init__(self, websocket_manager):
+        self.websocket_manager = websocket_manager
+    
+    @observe(name="human_feedback_websocket_handler")
+    async def handle(self, event: DomainEvent) -> None:
+        """Handle human feedback events for WebSocket updates"""
+        from domain.events.research_events import HumanFeedbackRequired, HumanFeedbackReceived
+        
+        if isinstance(event, HumanFeedbackRequired):
+            await self._handle_feedback_required(event)
+        elif isinstance(event, HumanFeedbackReceived):
+            await self._handle_feedback_received(event)
+    
+    async def _handle_feedback_required(self, event):
+        """Handle when human feedback is required"""
+        session_id = event.metadata.session_id
+        
+        message = {
+            "type": "human_feedback_required",
+            "session_id": session_id,
+            "plan_presentation": event.data.get("plan_presentation"),
+            "revision_number": event.data.get("revision_number", 0),
+            "timestamp": event.timestamp.isoformat(),
+            "ui": {
+                "title": "Human Feedback Required",
+                "message": "Please review the research plan and provide feedback",
+                "status": "waiting_for_feedback",
+                "progress": 15,
+                "show_notification": True,
+                "notification_type": "warning",
+                "show_feedback_form": True,
+                "feedback_form": {
+                    "plan_presentation": event.data.get("plan_presentation"),
+                    "revision_number": event.data.get("revision_number", 0),
+                    "requires_user_input": True
+                }
+            }
+        }
+        
+        await self.websocket_manager.send_to_session(session_id, message)
+        logger.info(f"Sent feedback request to WebSocket clients: {session_id}")
+    
+    async def _handle_feedback_received(self, event):
+        """Handle when human feedback is received"""
+        session_id = event.metadata.session_id
+        
+        message = {
+            "type": "human_feedback_received",
+            "session_id": session_id,
+            "feedback_type": event.data.get("feedback_type"),
+            "revision_number": event.data.get("revision_number", 0),
+            "timestamp": event.timestamp.isoformat(),
+            "ui": {
+                "title": "Feedback Received",
+                "message": f"Feedback received: {event.data.get('feedback_type')}",
+                "status": "processing_feedback",
+                "progress": 20,
+                "show_notification": True,
+                "notification_type": "info",
+                "feedback_processed": True
+            }
+        }
+        
+        await self.websocket_manager.send_to_session(session_id, message)
+        logger.info(f"Sent feedback received notification to WebSocket clients: {session_id}")
+    
+    @property
+    def event_type(self):
+        from domain.events.base import DomainEvent
+        return DomainEvent
+    
+    @property
+    def priority(self) -> EventPriority:
+        return EventPriority.HIGH  # Human feedback is high priority

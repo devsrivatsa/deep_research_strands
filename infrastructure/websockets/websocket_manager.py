@@ -10,7 +10,7 @@ import json
 import logging
 from typing import Dict, Any, Set, Optional, List
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import WebSocket, WebSocketDisconnect
 
 from langfuse import observe
@@ -37,12 +37,12 @@ class WebSocketConnection:
     session_id: str
     user_id: Optional[str] = None
     subscribed_events: Set[str] = field(default_factory=set)
-    connected_at: datetime = field(default_factory=datetime.utcnow)
-    last_activity: datetime = field(default_factory=datetime.utcnow)
+    connected_at: datetime = field(default_factory=datetime.now(timezone.utc))
+    last_activity: datetime = field(default_factory=datetime.now(timezone.utc))
     
     def update_activity(self):
         """Update last activity timestamp"""
-        self.last_activity = datetime.utcnow()
+        self.last_activity = datetime.now(timezone.utc)
 
 
 class ResearchWebSocketManager:
@@ -66,6 +66,12 @@ class ResearchWebSocketManager:
         # Connection metrics
         self.total_connections = 0
         self.active_sessions: Set[str] = set()
+        
+        # Session feedback storage
+        self._session_feedback: Dict[str, list] = {}
+        
+        # Feedback callbacks for orchestrator integration
+        self._feedback_callbacks: Dict[str, callable] = {}
         
         logger.info("Enhanced ResearchWebSocketManager initialized")
     
@@ -220,78 +226,72 @@ class ResearchWebSocketManager:
         }
         
         # Add event-specific UI information
-        if isinstance(event, ResearchSessionStarted):
-            base_message.update({
-                "ui_type": "session_started",
-                "ui_title": "Research Session Started",
-                "ui_message": f"Starting research: {event.data.get('query', 'Unknown query')}",
-                "ui_progress": 0,
-                "ui_status": "starting"
-            })
-        
-        elif isinstance(event, ResearchTaskStarted):
-            base_message.update({
-                "ui_type": "task_started", 
-                "ui_title": "Research Task Started",
-                "ui_message": event.data.get('task_description', 'Task started'),
-                "ui_progress": 10,
-                "ui_status": "in_progress"
-            })
-        
-        elif isinstance(event, ResearchTaskProgress):
-            progress_percent = min(100, max(0, event.data.get('progress_percentage', 0)))
-            base_message.update({
-                "ui_type": "task_progress",
-                "ui_title": "Research Progress", 
-                "ui_message": event.data.get('progress_message', 'Research in progress...'),
-                "ui_progress": progress_percent,
-                "ui_status": "in_progress"
-            })
-        
-        elif isinstance(event, ResearchTaskCompleted):
-            base_message.update({
-                "ui_type": "task_completed",
-                "ui_title": "Research Task Completed",
-                "ui_message": f"Completed: {event.data.get('task_description', 'Task')}",
-                "ui_progress": 100,
-                "ui_status": "completed"
-            })
-        
-        elif isinstance(event, ResearchTaskFailed):
-            base_message.update({
-                "ui_type": "task_failed",
-                "ui_title": "Research Task Failed", 
-                "ui_message": f"Failed: {event.data.get('error_message', 'Unknown error')}",
-                "ui_progress": 0,
-                "ui_status": "error"
-            })
-        
-        elif isinstance(event, ResearchSessionCompleted):
-            base_message.update({
-                "ui_type": "session_completed",
-                "ui_title": "Research Session Completed",
-                "ui_message": "Research completed successfully",
-                "ui_progress": 100,
-                "ui_status": "completed"
-            })
-        
-        elif isinstance(event, ResearchPlanGenerated):
-            base_message.update({
-                "ui_type": "plan_generated",
-                "ui_title": "Research Plan Generated",
-                "ui_message": f"Generated plan with {event.data.get('total_tasks', 0)} tasks",
-                "ui_progress": 5,
-                "ui_status": "planning"
-            })
-        
-        elif isinstance(event, ResearchReportGenerated):
-            base_message.update({
-                "ui_type": "report_generated",
-                "ui_title": "Research Report Generated",
-                "ui_message": f"Generated report ({event.data.get('report_length', 0)} characters)",
-                "ui_progress": 95,
-                "ui_status": "reporting"
-            })
+        match event:
+            case ResearchSessionStarted():
+                base_message.update({
+                    "ui_type": "session_started",
+                    "ui_title": "Research Session Started",
+                    "ui_message": f"Starting research: {event.data.get('query', 'Unknown query')}",
+                    "ui_progress": 0,
+                    "ui_status": "starting"
+                })
+            case ResearchTaskStarted():
+                base_message.update({
+                    "ui_type": "task_started", 
+                    "ui_title": "Research Task Started",
+                    "ui_message": event.data.get('task_description', 'Task started'),
+                    "ui_progress": 10,
+                    "ui_status": "in_progress"
+                })
+            case ResearchTaskProgress():
+                progress_percent = min(100, max(0, event.data.get('progress_percentage', 0)))
+                base_message.update({
+                    "ui_type": "task_progress",
+                    "ui_title": "Research Progress", 
+                    "ui_message": event.data.get('progress_message', 'Research in progress...'),
+                    "ui_progress": progress_percent,
+                    "ui_status": "in_progress"
+                })
+            case ResearchTaskCompleted():
+                base_message.update({
+                    "ui_type": "task_completed",
+                    "ui_title": "Research Task Completed",
+                    "ui_message": f"Completed: {event.data.get('task_description', 'Task')}",
+                    "ui_progress": 100,
+                    "ui_status": "completed"
+                })
+            case ResearchTaskFailed():
+                base_message.update({
+                    "ui_type": "task_failed",
+                    "ui_title": "Research Task Failed", 
+                    "ui_message": f"Failed: {event.data.get('error_message', 'Unknown error')}",
+                    "ui_progress": 0,
+                    "ui_status": "error"
+                })
+            case ResearchSessionCompleted():
+                base_message.update({
+                    "ui_type": "session_completed",
+                    "ui_title": "Research Session Completed",
+                    "ui_message": "Research completed successfully",
+                    "ui_progress": 100,
+                    "ui_status": "completed"
+                })
+            case ResearchPlanGenerated():
+                base_message.update({
+                    "ui_type": "plan_generated",
+                    "ui_title": "Research Plan Generated",
+                    "ui_message": f"Generated plan with {event.data.get('total_tasks', 0)} tasks",
+                    "ui_progress": 5,
+                    "ui_status": "planning"
+                })
+            case ResearchReportGenerated():
+                base_message.update({
+                    "ui_type": "report_generated",
+                    "ui_title": "Research Report Generated",
+                    "ui_message": f"Generated report ({event.data.get('report_length', 0)} characters)",
+                    "ui_progress": 95,
+                    "ui_status": "reporting"
+                })
         
         return base_message
     
@@ -310,7 +310,7 @@ class ResearchWebSocketManager:
         """Clean up stale connections"""
         from datetime import timedelta
         
-        cutoff_time = datetime.utcnow() - timedelta(minutes=max_idle_minutes)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=max_idle_minutes)
         stale_connections = []
         
         for session_connections in self.connections.values():
@@ -323,6 +323,71 @@ class ResearchWebSocketManager:
         
         if stale_connections:
             logger.info(f"Cleaned up {len(stale_connections)} stale connections")
+    
+    async def handle_feedback_message(self, session_id: str, feedback_data: Dict[str, Any]) -> None:
+        """
+        Handle incoming feedback messages from the UI.
+        
+        This method processes feedback from the UI and can trigger
+        domain events or callbacks to resume the orchestrator workflow.
+        """
+        try:
+            logger.info(f"Received feedback for session {session_id}: {feedback_data}")
+            
+            # Store feedback for the session (could be extended to persist to database)
+            if session_id not in self._session_feedback:
+                self._session_feedback[session_id] = []
+            
+            self._session_feedback[session_id].append({
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "feedback": feedback_data
+            })
+            
+            # Notify any waiting orchestrator processes
+            await self._notify_feedback_received(session_id, feedback_data)
+            
+        except Exception as e:
+            logger.error(f"Failed to handle feedback for session {session_id}: {e}")
+    
+    async def _notify_feedback_received(self, session_id: str, feedback_data: Dict[str, Any]) -> None:
+        """
+        Notify that feedback has been received for a session.
+        
+        This method can be extended to emit domain events or call
+        callbacks to resume the orchestrator workflow.
+        """
+        # For now, we'll just log the notification
+        # In a full implementation, this would trigger a domain event
+        # or call a callback to resume the orchestrator
+        logger.info(f"Feedback received for session {session_id}, ready to resume orchestrator")
+        
+        # Call the registered callback if available
+        if session_id in self._feedback_callbacks:
+            try:
+                callback = self._feedback_callbacks[session_id]
+                await callback(feedback_data)
+                logger.info(f"Feedback callback executed for session {session_id}")
+            except Exception as e:
+                logger.error(f"Error executing feedback callback for session {session_id}: {e}")
+        else:
+            logger.warning(f"No feedback callback registered for session {session_id}")
+    
+    def register_feedback_callback(self, session_id: str, callback: callable) -> None:
+        """
+        Register a callback function to be called when feedback is received.
+        
+        Args:
+            session_id: The session ID to register the callback for
+            callback: Async function that takes feedback_data as parameter
+        """
+        self._feedback_callbacks[session_id] = callback
+        logger.info(f"Registered feedback callback for session {session_id}")
+    
+    def unregister_feedback_callback(self, session_id: str) -> None:
+        """Unregister a feedback callback for a session"""
+        if session_id in self._feedback_callbacks:
+            del self._feedback_callbacks[session_id]
+            logger.info(f"Unregistered feedback callback for session {session_id}")
 
 
 class WebSocketEventBridge(EventHandler):

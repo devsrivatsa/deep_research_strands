@@ -25,6 +25,7 @@ from .research_events import (
     ResearchTaskFailed,
     ResearchJobCompleted,
     HumanFeedbackReceived,
+    HumanFeedbackRequired,
     ResearchReportGenerated
 )
 
@@ -93,6 +94,7 @@ __all__ = [
     "ResearchTaskCompleted",
     "ResearchTaskFailed",
     "ResearchJobCompleted",
+    "HumanFeedbackRequired",
     "HumanFeedbackReceived",
     "ResearchReportGenerated",
     
